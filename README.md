@@ -1,20 +1,22 @@
 # Leadcaps
 
-Projeto específico da OnSet Tecnologia para prospecção e desenvolvimento do módulo de inteligência de conteúdo.
+Console de prospecção da OnSet Tecnologia com bases de contatos preservadas no PostgreSQL.
 
-## Estado atual
+## Escopo ativo — versão 0.5
 
-A versão 0.4.1 acrescenta suporte à Serper (`serper.dev`), utilizada por Rodrigues, para pesquisa automática de Google Autocomplete: plano editável, coleta persistida, mapa de expressões, filtros, revisão de grupos e pertinência, comparação de amostras e seleção vinculada às oportunidades e briefings. Siga o [roteiro de instalação e uso pelo PowerShell](docs/pesquisa-automatica.md). A chave fica somente na VPS; há uma janela Windows com botão **Colar chave**. Use `-Service Serper`; a validação faz uma consulta de teste e pode consumir créditos. O conector SerpAPI anterior permanece separado e cada coleta conserva sua fonte.
+Rodrigues encerrou o módulo de inteligência de conteúdo em 23/10/2026. O projeto mantém o console original e a gestão de bases: login, importação Excel/CSV, descrição obrigatória, data/hora do servidor, autoria, consulta e escolha de qual base carregar. Cada carga é independente; uma importação não apaga, combina nem ativa automaticamente outras pesquisas.
 
-O fluxo editorial 0.3 continua disponível: contexto, expressões manuais ou hipóteses, oportunidades revisáveis, briefing, versões, aprovação e exportação Markdown, com Anthropic no servidor. O piloto de pesquisa 0.4 responde à [correção de escopo](docs/pesquisa-automatica-prioridade.md), mas ainda exige validação de resultados reais. Agrupamento inicial usa regras revisáveis, não clusters semânticos validados. Não há volume/CPC, múltiplos canais, artigos ou publicação automática.
+O console oferece filtros por cargo, setor, porte, localização e faturamento, seleção de contatos, mapa do Brasil e exportação Excel. As regras originais de classificação e score não foram recalibradas. O dossiê opcional herdado do HTML é separado do módulo editorial retirado; a API de bases não possui integrações com fornecedores de IA ou pesquisa.
 
-A versão 0.2 acrescenta o backend de bases: login, descrição obrigatória, data/hora do servidor, autoria e contatos preservados por importação. **Bases salvas** permite escolher qual pesquisa carregar, sem substituir ou combinar automaticamente cargas anteriores. A API de bases foi validada por HTTPS no ambiente informado. Novas instalações da versão 0.3 exigem a atualização da API e a publicação manual do frontend conforme o roteiro.
+## Atualizar a instalação existente
 
-O console já oferece filtros por cargo, setor, porte, localização e faturamento, seleção de contatos, mapa do Brasil, importação CSV/XLSX, exportação Excel, geração de um HTML com a base atualizada e dossiê de empresa com análise de IA.
+Siga [Atualizar bases — PowerShell, VPS e Netlify](docs/atualizar-bases.md). A atualização verifica backup e recria somente a API do Leadcaps. As bases, o volume PostgreSQL e os outros aplicativos da VPS são preservados. As tabelas editoriais antigas ficam inativas, sem exclusão de dados. Novas instalações criam somente acesso e bases.
+
+O frontend continua sendo publicado manualmente no Netlify. O upload de `dist` não modifica os contatos salvos no banco.
 
 ## Executar
 
-Requer Node.js 24 ou superior. O frontend usa JavaScript nativo; o backend utiliza o driver PostgreSQL `pg`.
+Requer Node.js 24 ou superior.
 
 ```bash
 npm ci --ignore-scripts
@@ -22,11 +24,9 @@ npm run validate
 npm start
 ```
 
-Abra `http://127.0.0.1:8000`. O servidor disponibiliza somente `dist/`, evitando servir o repositório inteiro. Para outra porta, use `npm start -- --port=8001`.
+Abra `http://127.0.0.1:8000`. `npm run build` gera `dist/index.html`, um HTML portátil com três contatos fictícios. O servidor local disponibiliza somente `dist`.
 
-`npm run build` produz `dist/index.html`, um HTML independente com três contatos fictícios. `npm run build:demo` faz a mesma compilação de demonstração. A interface identifica essa base como fictícia. A pasta `dist/` é gerada e não vai para o Git.
-
-Para uso local com a base real, execute:
+Para uso privado com o HTML original:
 
 ```bash
 npm run import:html -- "caminho/OnSet_Console_Decisores_v3.html"
@@ -34,47 +34,16 @@ npm run build:local
 npm start
 ```
 
-A extração lê somente o JSON incorporado e não executa o HTML. O original e a base extraída ficam em `reference/private/` e `data/private/`, fora do Git. Os metadados do arquivo recebido, incluindo quantidade e hash, estão em `data/base.metadata.json`; os da última importação ficam na pasta privada.
+Nunca publique o resultado de `build:local`. O repositório é público; planilhas reais, contatos, HTML original, `.env` e backups ficam fora do Git. O pacote original recebido tinha 5.157 contatos e permanece separado do exemplo público. A escolha das bases reais ocorre pelo aplicativo autenticado.
 
-## Estrutura
+## Documentação
 
-```text
-src/template.html           Estrutura da interface
-src/styles/console.css      Estilos existentes
-src/js/app.js               Estado, filtros, telas e dossiê
-src/js/ingest.js            Leitura e normalização de planilhas
-src/js/database.js          Login e escolha de bases persistidas
-src/js/xlsx-export.js       Geração de Excel
-src/js/brazil-map.js        Geometria do mapa
-src/assets/                Imagens incorporadas na compilação
-data/                      Metadados e base privada local ignorada
-examples/                  Planilha fictícia para testes
-scripts/                   Compilação, execução e validação
-tests/                     Testes de importação e portabilidade
-backend/                   API, autenticação e migrações PostgreSQL
-compose.yaml               Serviços e volume exclusivos do Leadcaps
-docs/                      Arquitetura e especificação do módulo
-reference/                 Orientações e HTML privado local ignorado
-```
+- [Contrato de bases e importações](docs/bases-e-importacoes.md)
+- [Operação pelo PowerShell](docs/powershell.md)
+- [Implantação e isolamento Docker](docs/implantacao.md)
+- [Gateway HTTPS existente](docs/https-vps.md)
+- [Arquitetura e evolução](docs/arquitetura-atual.md)
 
-## Dados e acesso
+## Verificação
 
-O repositório Leadcaps criado por Rodrigues é público. Por isso, somente código, documentação, metadados e exemplos fictícios são publicados. A base recebida de 5.157 contatos contém nomes, cargos, empresas, e-mails reconstruíveis e perfis de LinkedIn e permanece fora do Git. Não publicar o HTML produzido por `build:local`. Planilhas de trabalho, exportações e arquivos `.env` também ficam fora do Git. O campo `private` do package.json impede publicar o pacote no npm e não muda a visibilidade do GitHub.
-
-A análise de IA do dossiê original ainda solicita uma chave da Anthropic no navegador e a mantém somente na memória da aba. Essa função herdada é separada do novo módulo editorial, que usa exclusivamente a chave privada da VPS. O módulo não reutiliza nem solicita uma chave no navegador. A migração do dossiê legado para o servidor permanece futura. Nenhuma consulta paga é necessária para executar os testes.
-
-## Backend e Netlify
-
-Para executar a partir do Windows, siga o [roteiro completo de PowerShell](docs/powershell.md): pasta local, primeira instalação na VPS, HTTPS, compilação, publicação manual, backup e atualizações.
-
-Consulte [o contrato de bases](docs/bases-e-importacoes.md) e [as instruções de implantação](docs/implantacao.md). O Compose mantém PostgreSQL sem porta pública, API restrita ao loopback, volume e redes próprios. O endereço HTTPS da API e a origem exata do frontend precisam ser configurados para a implantação real. As credenciais e os contatos permanecem fora do Git.
-
-O upload manual no Netlify usa a pasta `dist`, compilada com dados fictícios. Atualizar essa pasta não altera as bases salvas no banco. O workflow também disponibiliza o artefato `leadcaps-netlify-demo` para download depois das verificações.
-
-Sem `TEST_DATABASE_URL`, os testes de integração de banco são indicados como ignorados; os demais executam localmente. No GitHub Actions, um PostgreSQL exclusivo permite executar a integração, além de validar o Compose e construir a imagem Docker. Os arquivos de testes executam em sequência porque as filas de seus schemas isolados compartilham advisory locks no mesmo banco de testes.
-
-## Próxima etapa
-
-Instalar a versão 0.4.1 e validar descoberta e pertinência com temas reais, antes de ampliar redação. Métricas, agrupamento semântico, outros canais e o snapshot completo dos filtros são etapas posteriores. O contexto editorial e o score de contatos são objetos diferentes: prioridade de conteúdo não qualifica uma pessoa automaticamente.
-
-Os pesos e as regras do módulo são propostas próprias. A implementação não usa código nem algoritmo proprietário do AnswerThePublic.
+`npm run validate` verifica sintaxe, contratos, autenticação, importação, exportação e compilação. Sem `TEST_DATABASE_URL`, a integração PostgreSQL é indicada como ignorada. No GitHub Actions, banco exclusivo e navegador verificam preservação de bases, atualização de uma instalação antiga, retirada das rotas editoriais e operação da interface. O workflow também valida Docker e o gateway HTTPS. Não são necessárias chamadas pagas.

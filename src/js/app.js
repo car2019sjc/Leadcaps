@@ -1437,12 +1437,4 @@ function iaConfig(forcar) {
 
 render();
 DB.init('__API_URL__');
-CI.init(() => {
-  const top = field => {
-    const count = new Map();
-    VIEW.forEach(row => { const label = row[field] || 'Não informado'; count.set(label, (count.get(label) || 0) + 1); });
-    return [...count].sort((a,b) => b[1]-a[1]).slice(0,5).map(([label,count]) => ({ label, count }));
-  };
-  return { base_id: SOURCE?.id || null, kind: SOURCE?.id ? 'saved' : SOURCE ? 'local' : 'demo', count: VIEW.length, roles: top('f'), sectors: top('ind'), regions: top('uf') };
-});
 

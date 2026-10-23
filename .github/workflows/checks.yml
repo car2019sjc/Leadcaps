@@ -3,15 +3,6 @@ on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
-  windows_configurator:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-      - name: Verificar janela, colagem e envio privado no Windows PowerShell
-        shell: powershell
-        run: powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File tests/windows-configurator.ps1
   validate:
     runs-on: ubuntu-latest
     services:

@@ -74,4 +74,4 @@ Os comandos já documentados com `docker compose --project-name leadcaps` no dir
 
 Após alterações no gateway, use o instalador novamente para validar e aplicar. O bloco de domínio é idempotente. Após recriar o Caddy compartilhado pelo processo normal daquele projeto, a rota continua no seu Caddyfile e o gateway permanece na rede externa existente; não é necessário executar `docker network connect` manualmente.
 
-O instalador não testa login, importação real ou o módulo de conteúdo. Esses testes dependem da validação do usuário pelo aplicativo público. Não há geração de conteúdo implementada nesta entrega.
+O instalador verifica gateway, conexão interna e CORS. Login e importação real devem ser conferidos pelo aplicativo público.

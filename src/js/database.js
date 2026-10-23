@@ -1,6 +1,6 @@
 /* Backend opcional. Token somente em memória; contatos nunca são gravados em storage do navegador. */
 const DB = (() => {
-  let token = '', api = '', user = null, nextOffset = null, busyImport = false, sessionState = false;
+  let token = '', api = '', user = null, nextOffset = null, busyImport = false;
   const el = id => document.getElementById(id);
   const message = value => { el('dbMessage').textContent = value; };
   const connected = () => !!token;
@@ -13,10 +13,6 @@ const DB = (() => {
     el('importDestination').textContent = connected()
       ? 'A carga será salva como uma nova base no banco. Depois de salvar, escolha se deseja usá-la no painel.'
       : 'Modo local: os contatos ficam nesta sessão. Conecte o banco para preservar e consultar suas bases depois.';
-    if (sessionState !== connected()) {
-      sessionState = connected();
-      document.dispatchEvent(new CustomEvent('leadcaps:session', { detail: { connected: sessionState } }));
-    }
   }
   async function request(path, { method = 'GET', body, auth = true } = {}) {
     const headers = {};
@@ -99,5 +95,5 @@ const DB = (() => {
     };
     update();
   }
-  return { init, open, close, request, connected, save, activate, get busy() { return busyImport; }, set busy(value) { busyImport = value; } };
+  return { init, open, connected, save, activate, get busy() { return busyImport; }, set busy(value) { busyImport = value; } };
 })();

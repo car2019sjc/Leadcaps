@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Executar dentro da VPS: bash deploy/update-content.sh
+# Executar dentro da VPS: bash deploy/update-bases.sh
 set -euo pipefail
 cd /opt/leadcaps
 test -f .env
@@ -8,7 +8,7 @@ test -z "$(git status --porcelain --untracked-files=no)" || { echo 'Há alteraç
 umask 077
 mkdir -p backups
 chmod 700 backups
-LEADCAPS_UPDATE_BACKUP=$(mktemp -d "$PWD/backups/content-update-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")
+LEADCAPS_UPDATE_BACKUP=$(mktemp -d "$PWD/backups/bases-update-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX")
 trap 'echo "Atualização interrompida. Backup preservado em: $LEADCAPS_UPDATE_BACKUP" >&2' ERR
 docker compose --project-name leadcaps exec -T db pg_dump -U leadcaps -d leadcaps -Fc > "$LEADCAPS_UPDATE_BACKUP/database.dump"
 test -s "$LEADCAPS_UPDATE_BACKUP/database.dump"
@@ -27,4 +27,4 @@ docker compose --project-name leadcaps ps
 LEADCAPS_CHECK_PORT=$(awk -F= '$1=="API_PORT" {print $2}' .env)
 curl --fail --show-error --max-time 20 "http://127.0.0.1:${LEADCAPS_CHECK_PORT:-8310}/health"
 echo
-echo 'Backend atualizado. Publique o novo dist no Netlify conforme docs/modulo-conteudo.md.'
+echo 'Backend atualizado. Publique o novo dist no Netlify conforme docs/powershell.md.'

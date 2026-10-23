@@ -56,7 +56,3 @@ Datas são transmitidas em ISO 8601. A biblioteca apresenta o horário de Brasí
 | GET /health | Nenhuma | Disponibilidade da API e conexão com o banco |
 
 Erros de contrato retornam 400; sessão ausente/expirada, 401; origem não autorizada, 403; limite excedido, 413; excesso de tentativas de login, 429. Uma falha de consulta nunca é apresentada como base vazia ou importação concluída.
-
-## Integração editorial posterior
-
-O módulo de conteúdo poderá receber `base_id` e somente os agregados do recorte escolhido: setor, cargo, localização e contagens. Importar leads não comprova demanda por um tema. Pesquisa, oportunidade e briefing manterão fontes, inferências e propostas de IA separados. Contatos individuais não serão enviados automaticamente a fornecedores de IA.

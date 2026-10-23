@@ -33,6 +33,8 @@ import { once } from 'node:events';
   });
   await page.goto('http://127.0.0.1:8013', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => document.getElementById('tblN').textContent === '3');
+  assert.equal(await page.locator('#btnContent').count(),0,'Módulo de conteúdo retirado');
+  assert.equal(await page.locator('#contentModule').count(),0,'Tela editorial não deve ser compilada');
   await page.locator('#btnUp').click();
   const csv = { name: 'manufatura.csv', mimeType: 'text/csv', buffer: Buffer.from('Nome;Cargo;Empresa;Email;Estado\nContato Nova Pesquisa;CIO;Industria Exemplo;novo@example.com;SP\n') };
   await page.locator('#file').setInputFiles(csv);

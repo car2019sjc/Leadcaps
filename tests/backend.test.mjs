@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
 import pg from 'pg';
 import { loadDemoPack } from '../scripts/build.mjs';
 import { validateImport } from '../backend/validation.mjs';
@@ -43,6 +44,7 @@ test('PostgreSQL: cargas independentes, idempotência, retomada e controle de ac
     await pool.end(); await admin.query(`DROP SCHEMA ${schema} CASCADE`); await admin.end();
   });
   await migrate(pool); await migrate(pool);
+  assert.equal((await pool.query("SELECT to_regclass('content_researches') AS table_name")).rows[0].table_name, null, 'Instalação nova cria somente acesso e bases');
   await pool.query('INSERT INTO app_users(id,login,display_name,password_hash) VALUES ($1,$2,$3,$4)', [randomUUID(), 'teste', 'Pessoa de Teste', await passwordHash('senha-ficticia-1234')]);
   server = await createApi({ pool, origins: ['https://exemplo.netlify.app'] });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -72,6 +74,24 @@ test('PostgreSQL: cargas independentes, idempotência, retomada e controle de ac
   assert.equal((await call('/v1/imports', 'POST', { ...first, request_id: randomUUID(), description: '' })).status, 400);
   const items = (await (await call('/v1/imports')).json()).items;
   assert.equal(items.length, 2); assert.ok(items.every(item => !('pack' in item)));
+  // Simula uma instalação que já recebeu o módulo encerrado, sem apagar seu histórico.
+  for (const [version, file] of [[2,'002_content.sql'],[3,'003_search.sql']]) {
+    await pool.query(await readFile(new URL('../backend/migrations/'+file,import.meta.url),'utf8'));
+    await pool.query('INSERT INTO schema_migrations(version) VALUES($1)',[version]);
+  }
+  const userId=(await pool.query("SELECT id FROM app_users WHERE login='teste'")).rows[0].id;
+  const legacyId=randomUUID();
+  await pool.query("INSERT INTO content_researches(id,request_id,payload_hash,created_by,data) VALUES($1,$2,'legacy',$3,$4)",[legacyId,randomUUID(),userId,JSON.stringify({preserved:true})]);
+  const runId=randomUUID();
+  await pool.query("INSERT INTO search_runs(id,request_id,payload_hash,created_by,status,data) VALUES($1,$2,'legacy',$3,'queued','{}')",[runId,randomUUID(),userId]);
+  await migrate(pool);
+  assert.deepEqual((await pool.query('SELECT version FROM schema_migrations ORDER BY version')).rows.map(r=>r.version),[1,2,3]);
+  assert.deepEqual((await pool.query('SELECT data FROM content_researches WHERE id=$1',[legacyId])).rows[0].data,{preserved:true});
+  assert.equal((await pool.query('SELECT status FROM search_runs WHERE id=$1',[runId])).rows[0].status,'queued');
+  assert.equal(server.content,undefined);assert.equal(server.discovery,undefined);
+  for (const path of ['/v1/content/config','/v1/search/config']) assert.equal((await call(path)).status,404);
+  for (const path of ['/v1/content/jobs','/v1/search/runs']) assert.equal((await call(path,'POST',{})).status,404);
+  assert.deepEqual((await(await call(`/v1/imports/${one.id}`)).json()).item.pack,beforeLogout.pack);
   assert.equal((await call('/v1/sessions/current', 'DELETE')).status, 204);
   assert.equal((await call('/v1/imports')).status, 401);
   token = (await (await call('/v1/sessions', 'POST', { login: 'teste', password: 'senha-ficticia-1234' })).json()).token;

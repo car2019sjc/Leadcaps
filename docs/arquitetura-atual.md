@@ -11,12 +11,6 @@
 - A chamada de IA existente usa Anthropic no navegador; a chave não está gravada no HTML.
 - Fontes tipográficas vêm do Google Fonts. Links de e-mail, pesquisa e LinkedIn abrem serviços externos.
 
-## Encaixe do módulo de conteúdo
-
-Reaproveitar os recortes por segmento, cargo e localização como contexto agregado, mediante seleção do usuário. Não enviar a base inteira para pesquisar conteúdo. Acrescentar uma área de inteligência editorial com entidades próprias para pesquisa, sinal, grupo, oportunidade e briefing.
-
-O arquivo atual não comprova a existência de campanhas ou automações. O primeiro destino utilizável será um briefing exportável; qualquer vínculo com campanha dependerá de uma função implementada e confirmada. Um backend será necessário para manter credenciais, consultas pagas e histórico compartilhado.
-
 ## Decisões desta migração
 
 Manter JavaScript nativo e o HTML portátil. Separar fontes, dados e ferramentas de compilação. Preservar o original para comparação. Não recalibrar scores, alterar a classificação de contatos ou executar consultas pagas nesta etapa.
@@ -30,3 +24,7 @@ Rodrigues definiu backend Docker/PostgreSQL em VPS compartilhada e frontend atua
 O banco é exclusivo do projeto. As cargas mantêm descrição obrigatória, data/hora do servidor, usuário autenticado, arquivo de origem, hash e contagem. Salvar e carregar são ações separadas. Não há deduplicação nem substituição entre bases persistidas. O modo local herdado continua disponível e identificado como temporário.
 
 O [contrato](bases-e-importacoes.md) e o [plano de implantação](implantacao.md) distinguem código implementado, configuração proposta e validação ainda necessária na VPS. Não houve implantação em produção nesta etapa.
+
+## Escopo ativo 0.5
+
+Rodrigues encerrou o módulo de inteligência de conteúdo em 23/10/2026. O console original e a persistência de bases seguem ativos. A API atende apenas autenticação, importações e saúde do banco. As tabelas editoriais já existentes permanecem inativas, preservadas; novas instalações criam apenas as tabelas de bases e acesso.
