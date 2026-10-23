@@ -31,6 +31,7 @@ const CI = (() => {
     $('ciExport').disabled = !version || version.status !== 'approved' || dirtyBrief;
     $('ciSaveBrief').disabled = !version || !dirtyBrief || version.version !== brief?.brief.latest_version;
     $('ciSaveResearch').disabled = busy;
+    $('ciReviewed').disabled = !version || version.status === 'approved' || dirtyBrief;
   }
   async function perform(work) {
     if (busy) return;
@@ -160,7 +161,7 @@ const CI = (() => {
     showVersion(data.versions[0]); $('ciBriefSection').scrollIntoView({behavior:'smooth',block:'start'});
   }
   function showVersion(item) {
-    version=item; dirtyBrief=false; $('ciReviewed').checked=false; $('ciVersion').value=item.version;
+    version=item; dirtyBrief=false; $('ciReviewed').checked=item.status==='approved'; $('ciVersion').value=item.version;
     $('ciBriefStatus').textContent=`Versão ${item.version} · ${item.status==='approved' ? 'aprovada por '+item.approver : 'rascunho'} · ${date(item.created_at)} (Brasília).${item.data.hypothesis ? ' Hipótese editorial, sem demanda validada.' : ''}`;
     $('ciBriefFields').innerHTML=Object.entries(briefText).map(([key,label])=>field(key,label,item.data[key],'ciB')).join('')+Object.entries(briefLists).map(([key,label])=>field(key,label,item.data[key].join('\n'),'ciB')).join('')+`<p class="ci-muted">Referências vinculadas: ${item.data.evidence_refs.length} expressões da oportunidade selecionada. Consulte o histórico da pesquisa.</p>`;
     $('ciBvalidation_tasks').required=false;

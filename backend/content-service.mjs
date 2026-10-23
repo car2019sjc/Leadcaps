@@ -156,11 +156,12 @@ export function createContentService({ pool, provider = anthropicProvider(), dai
       await client.query("UPDATE content_jobs SET status='unknown',error_code='worker_interrupted',error_message='Processamento interrompido; consumo não confirmado. Não haverá repetição automática.',finished_at=clock_timestamp() WHERE status='running'");
       const job = (await client.query("UPDATE content_jobs SET status='running',started_at=clock_timestamp() WHERE id=(SELECT id FROM content_jobs WHERE status='queued' ORDER BY created_at,id LIMIT 1) RETURNING *")).rows[0];
       if (!job) return;
-      let generated;
+      let generated, inTransaction = false;
       try {
         generated = await provider.generate(job.action, job.input, abort.signal);
         let result;
         await client.query('BEGIN');
+        inTransaction = true;
         if (job.action === 'opportunities') {
           object(generated.data, ['opportunities']);
           if (!Array.isArray(generated.data.opportunities) || !generated.data.opportunities.length || generated.data.opportunities.length > 3) throw new HttpError(400, 'A IA deve retornar de 1 a 3 oportunidades.');
@@ -179,8 +180,9 @@ export function createContentService({ pool, provider = anthropicProvider(), dai
         }
         await client.query("UPDATE content_jobs SET status='completed',result=$2,usage=$3,model=$4,provider_request_id=$5,finished_at=clock_timestamp() WHERE id=$1", [job.id, JSON.stringify(result), JSON.stringify(generated.usage || null), generated.model || job.model, generated.request_id || null]);
         await client.query('COMMIT');
+        inTransaction = false;
       } catch (error) {
-        await client.query('ROLLBACK');
+        if (inTransaction) await client.query('ROLLBACK');
         const unknown = error.code === 'provider_unknown';
         const knownProviderError = typeof error.code === 'string' && /^(anthropic_http_\d+|incomplete_output|invalid_output|provider_unknown)$/.test(error.code);
         await client.query('UPDATE content_jobs SET status=$2,error_code=$3,error_message=$4,usage=$5,provider_request_id=$6,finished_at=clock_timestamp() WHERE id=$1', [job.id, unknown ? 'unknown' : 'failed', knownProviderError ? error.code : 'invalid_result', knownProviderError ? error.message : 'Resultado não passou pela validação; nenhuma oportunidade ou versão foi publicada. Não haverá repetição automática.', JSON.stringify(generated?.usage || error.usage || null), generated?.request_id || error.request_id || null]);

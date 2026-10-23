@@ -47,8 +47,11 @@ try {
   const downloadPromise=page.waitForEvent('download');await page.locator('#ciExport').click();const download=await downloadPromise;assert.match(download.suggestedFilename(),/v2\.md$/);
   await page.locator('#ciBriefSection').scrollIntoViewIfNeeded();await page.screenshot({path:'test-results/conteudo-briefing-desktop.png'});
   await page.setViewportSize({width:390,height:844});
+  const bounds=await page.locator('.ci-shell').boundingBox();
+  assert.ok(bounds.x>=0 && bounds.x+bounds.width<=391,'A janela editorial deve caber na largura do celular');
   await page.locator('#ciBriefStatus').scrollIntoViewIfNeeded();await page.screenshot({path:'test-results/conteudo-briefing-mobile.png'});
   await page.locator('#ciClose').click();await page.locator('#btnBases').click();await page.locator('#dbLogout').click();
+  await page.waitForFunction(()=>document.getElementById('dbLogin').hidden===false);
   assert.equal(await page.locator('#ciBriefFields').textContent(),'');assert.equal(errors.length,0,errors.join('\n'));
   console.log('UI editorial real com PostgreSQL e Anthropic simulada: contexto, perfil agregado, pesquisa sem consumo, geração, revisão, versões, aprovação, exportação e limpeza no logout — OK. Nenhuma chamada paga.');
 } finally {

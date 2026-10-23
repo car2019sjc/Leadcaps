@@ -7,9 +7,25 @@ import unittest
 spec = importlib.util.spec_from_file_location("enable_https", Path(__file__).resolve().parents[1] / "deploy/enable_https.py")
 deploy = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(deploy)
+config_spec = importlib.util.spec_from_file_location("configure_anthropic", Path(__file__).resolve().parents[1] / "deploy/configure_anthropic.py")
+config = importlib.util.module_from_spec(config_spec)
+config_spec.loader.exec_module(config)
 
 
 class DeploymentGuards(unittest.TestCase):
+    def test_anthropic_configuration_preserves_database_and_proxy_settings(self):
+        source = "POSTGRES_PASSWORD=private-value\nALLOWED_ORIGINS=https://example.com\nAPI_PORT=8310\n"
+        result = config.replace_values(source, {"ANTHROPIC_API_KEY": "fictitious-key", "ANTHROPIC_MODEL": "model-test"})
+        self.assertTrue(result.startswith(source))
+        self.assertEqual(result.count("ANTHROPIC_API_KEY="), 1)
+        replaced = config.replace_values(result, {"ANTHROPIC_API_KEY": "another-fictitious-key"})
+        self.assertIn("ANTHROPIC_API_KEY=another-fictitious-key\n", replaced)
+        self.assertNotIn("ANTHROPIC_API_KEY=fictitious-key\n", replaced)
+
+    def test_duplicate_anthropic_configuration_is_not_rewritten(self):
+        with self.assertRaises(ValueError):
+            config.replace_values("ANTHROPIC_API_KEY=one\nANTHROPIC_API_KEY=two\n", {"ANTHROPIC_API_KEY": "new"})
+
     def test_origin_preserves_password_and_existing_origins(self):
         source = "POSTGRES_PASSWORD=private-value\nALLOWED_ORIGINS=http://127.0.0.1:8000\nAPI_PORT=8310\n"
         result = deploy.add_origin(source)
