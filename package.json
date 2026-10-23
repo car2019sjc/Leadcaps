@@ -1,6 +1,6 @@
 {
   "name": "leadcaps",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Console de prospecção da OnSet e base para inteligência de conteúdo",
   "type": "module",

@@ -7,6 +7,7 @@ if ($parseErrors.Count -ne 0) { throw 'The Windows configurator has syntax error
 . $scriptPath
 $controls = New-LeadcapsCredentialDialog
 $serpControls = $null
+$serperControls = $null
 $fakeKey = 'fictitious-windows-key-1234567890'
 $probePath = Join-Path $env:TEMP ('leadcaps-stdin-probe-' + [guid]::NewGuid().ToString('N') + '.exe')
 try {
@@ -24,6 +25,14 @@ try {
     if ($serpControls.KeyBox.Text -cne $fakeKey -or -not $serpControls.KeyBox.UseSystemPasswordChar) { throw 'SerpAPI paste and mask check failed.' }
     if ($serpControls.WorkspaceBox.Visible) { throw 'SerpAPI must not ask for an Anthropic workspace.' }
     $serpControls.Form.Hide()
+    $serperControls = New-LeadcapsCredentialDialog -Service Serper
+    $serperControls.Form.Show()
+    [System.Windows.Forms.Application]::DoEvents()
+    $serperControls.PasteButton.PerformClick()
+    if ($serperControls.KeyBox.Text -cne $fakeKey -or -not $serperControls.KeyBox.UseSystemPasswordChar) { throw 'Serper paste and mask check failed.' }
+    if ($serperControls.WorkspaceBox.Visible) { throw 'Serper must not ask for an Anthropic workspace.' }
+    if ($serperControls.Form.Text -cne 'Leadcaps - configurar Serper') { throw 'Wrong provider in Serper window title.' }
+    $serperControls.Form.Hide()
     $source = @'
 using System;
 public class PrivateInputProbe {
@@ -36,6 +45,7 @@ public class PrivateInputProbe {
         if (!body.Contains("\"key\":\"" + secret + "\"")) return 13;
         if (args[2].Contains("configure_anthropic.py") && !body.Contains("\"model\":\"claude-test\"")) return 14;
         if (args[2].Contains("configure_serpapi.py") && body.Contains("\"model\"")) return 15;
+        if (args[2].Contains("configure_serper.py") && body.Contains("\"model\"")) return 16;
         Console.WriteLine("PRIVATE_PAYLOAD_OK");
         return 0;
     }
@@ -47,11 +57,14 @@ public class PrivateInputProbe {
     if ($result -cne 'PRIVATE_PAYLOAD_OK') { throw 'The credential was not sent through private stdin.' }
     $serpResult = Send-LeadcapsPrivateConfiguration -Configuration @{ key = $fakeKey } -Destination 'root@example.test' -SshExecutable $probePath -Service SerpAPI
     if ($serpResult -cne 'PRIVATE_PAYLOAD_OK') { throw 'SerpAPI credential did not use private stdin.' }
+    $serperResult = Send-LeadcapsPrivateConfiguration -Configuration @{ key = $fakeKey } -Destination 'root@example.test' -SshExecutable $probePath -Service Serper
+    if ($serperResult -cne 'PRIVATE_PAYLOAD_OK') { throw 'Serper credential did not use private stdin.' }
     Write-Host 'Windows clipboard, masked field, syntax and private native stdin checks passed.'
 } finally {
     $controls.KeyBox.Clear()
     $controls.Form.Dispose()
     if ($null -ne $serpControls) { $serpControls.KeyBox.Clear(); $serpControls.Form.Dispose() }
+    if ($null -ne $serperControls) { $serperControls.KeyBox.Clear(); $serperControls.Form.Dispose() }
     [System.Windows.Forms.Clipboard]::Clear()
     Remove-Item -LiteralPath $probePath -ErrorAction SilentlyContinue
 }

@@ -10,13 +10,16 @@ import {migrate} from '../backend/db.mjs';
 import {passwordHash} from '../backend/auth.mjs';
 import {opportunityFixture,briefFixture} from './content-fixtures.mjs';
 import {fakeSearchProvider} from './search-fixtures.mjs';
+import {serperProvider} from '../backend/serper.mjs';
 if(!process.env.TEST_DATABASE_URL){console.log('UI de pesquisa ignorada: configure TEST_DATABASE_URL de testes.');process.exit(0);}
 const admin=new pg.Pool({connectionString:process.env.TEST_DATABASE_URL}),schema='ui_search_'+randomUUID().replaceAll('-','');await admin.query(`CREATE SCHEMA ${schema}`);
 const pool=new pg.Pool({connectionString:process.env.TEST_DATABASE_URL,options:`-c search_path=${schema}`,max:4});let browser,api,web,collected=0,generated=0;
 try {
   await mkdir('test-results',{recursive:true});await migrate(pool);
   await pool.query('INSERT INTO app_users(id,login,display_name,password_hash) VALUES($1,$2,$3,$4)',[randomUUID(),'pesquisa','Pesquisador fictício',await passwordHash('senha-ficticia-1234')]);
-  api=await createApi({pool,origins:['http://127.0.0.1:8015'],searchProvider:fakeSearchProvider(()=>collected++),contentProvider:{enabled:true,model:'modelo-ficticio-UI',maxTokens:4096,generate:async(action,input)=>{generated++;return{data:action==='opportunities'?{opportunities:[opportunityFixture(input.research)]}:briefFixture(input),usage:{input_tokens:100,output_tokens:200}};}}});
+  const simulated=fakeSearchProvider(()=>collected++);
+  const search=serperProvider({key:'fictitious-ui-serper-key',fetchImpl:async(url,options)=>{assert.equal(url,'https://google.serper.dev/autocomplete');const result=await simulated.autocomplete(JSON.parse(options.body).q);return new Response(JSON.stringify({suggestions:result.items.map(item=>({value:item.text}))}));}});
+  api=await createApi({pool,origins:['http://127.0.0.1:8015'],searchProvider:search,contentProvider:{enabled:true,model:'modelo-ficticio-UI',maxTokens:4096,generate:async(action,input)=>{generated++;return{data:action==='opportunities'?{opportunities:[opportunityFixture(input.research)]}:briefFixture(input),usage:{input_tokens:100,output_tokens:200}};}}});
   await new Promise(resolve=>api.listen(8329,'127.0.0.1',resolve));api.content.start();api.discovery.start();
   web=spawn(process.execPath,['scripts/serve.mjs','--port=8015'],{stdio:['ignore','pipe','inherit']});await once(web.stdout,'data');
   browser=await chromium.launch({headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -25,6 +28,7 @@ try {
   await page.locator('#btnContent').click();await page.waitForFunction(()=>document.getElementById('dsConfig').textContent.includes('Google Autocomplete'));
   await page.locator('#ciService').fill('Serviços gerenciados de TI');await page.locator('#ciAudience').fill('Gestores de TI');await page.locator('#ciGoal').fill('Gerar conversas de diagnóstico');await page.locator('#ciTheme').fill('Recorrência de incidentes');await page.locator('#dsSeed').fill('service desk');await page.locator('#dsPlan').click();
   await page.locator('#dsQueries').fill('service desk\nservice desk preço\nservice desk vagas');await page.locator('#dsExclusions').fill('vagas');assert.equal(collected,0);assert.equal(generated,0);
+  assert.match(await page.locator('#dsRun').textContent(),/via Serper$/);
   await page.locator('#dsRun').click();await page.waitForFunction(()=>document.getElementById('dsSummary').textContent.includes('Concluída'));
   assert.equal(collected,3);assert.equal(generated,0,'Coletar não deve chamar a Anthropic');assert.match(await page.locator('#dsSummary').textContent(),/4 expressões distintas · 5 ocorrências/);
   assert.equal(await page.locator('.ds-group').count()>=3,true);await page.locator('#dsDisposition').selectOption('excluded');assert.equal(await page.locator('.ds-signal').count(),1);assert.match(await page.locator('#dsRows').textContent(),/vagas/);
@@ -38,7 +42,7 @@ try {
   await page.locator('#ciAnalyze').click();await page.waitForFunction(()=>document.querySelectorAll('.ci-opportunity').length===1);await page.locator('[data-ci-select]').click();await page.locator('#ciGenerateBrief').click();await page.waitForFunction(()=>!document.getElementById('ciBriefSection').hidden);assert.equal(generated,2);
   await page.locator('#ciReviewed').check();await page.locator('#ciApprove').click();await page.waitForFunction(()=>document.getElementById('ciBriefStatus').textContent.includes('aprovada por'));
   const downloadPromise=page.waitForEvent('download');await page.locator('#ciExport').click();const download=await downloadPromise;assert.match(download.suggestedFilename(),/v1\.md$/);
-  const dbSnapshot=(await pool.query("SELECT data FROM content_researches WHERE data->>'schema_version'='content.research.v2'")).rows[0].data;assert.equal(dbSnapshot.signals[0].kind,'collected_autocomplete');assert.ok(dbSnapshot.search_origin.run_id);
+  const dbSnapshot=(await pool.query("SELECT data FROM content_researches WHERE data->>'schema_version'='content.research.v2'")).rows[0].data;assert.equal(dbSnapshot.signals[0].kind,'collected_autocomplete');assert.ok(dbSnapshot.search_origin.run_id);assert.equal(dbSnapshot.search_origin.provider,'Serper');assert.equal(dbSnapshot.signals[0].source,'Google Autocomplete via Serper');
   await page.locator('#ciClose').click();await page.locator('#btnBases').click();await page.locator('#dbLogout').click();await page.waitForFunction(()=>document.getElementById('dbLogin').hidden===false);assert.equal(await page.locator('#dsRows').textContent(),'');assert.equal(errors.length,0,errors.join('\n'));
   console.log('UI: coleta simulada, mapa, filtro, revisão, retomada, seleção, oportunidade, briefing e aprovação com PostgreSQL real — OK. Nenhuma chamada paga.');
 }finally{

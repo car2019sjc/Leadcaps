@@ -58,7 +58,7 @@ def main():
     original = env_path.read_bytes()
     key = read_key(sys.stdin)
     remaining = check_account(key)
-    values = {'SERPAPI_API_KEY': key}
+    values = {'SERPAPI_API_KEY': key, 'SEARCH_PROVIDER': 'serpapi'}
     for name, default in [('SEARCH_MONTHLY_LIMIT', '200'), ('SEARCH_HOURLY_LIMIT', '40')]:
         if not re.search('^' + name + '=', original.decode(), re.M):
             values[name] = default

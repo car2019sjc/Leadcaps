@@ -20,9 +20,76 @@ serp_spec = importlib.util.spec_from_file_location('configure_serpapi', Path(__f
 serp = importlib.util.module_from_spec(serp_spec)
 with mock.patch.dict(sys.modules, {'configure_anthropic': config}):
     serp_spec.loader.exec_module(serp)
+serper_spec = importlib.util.spec_from_file_location('configure_serper', Path(__file__).resolve().parents[1] / 'deploy/configure_serper.py')
+serper = importlib.util.module_from_spec(serper_spec)
+with mock.patch.dict(sys.modules, {'configure_anthropic': config}):
+    serper_spec.loader.exec_module(serper)
 
 
 class DeploymentGuards(unittest.TestCase):
+    def test_serper_validation_posts_one_query_without_key_in_url(self):
+        key = 'fictitious-serper-key-1234567890'
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = b'{"suggestions":[]}'
+        opener = mock.Mock()
+        opener.open.return_value = response
+        with mock.patch.object(serper.urllib.request, 'build_opener', return_value=opener):
+            serper.check_access(key)
+        opener.open.assert_called_once()
+        request = opener.open.call_args.args[0]
+        self.assertEqual(request.full_url, 'https://google.serper.dev/autocomplete')
+        self.assertEqual(request.get_method(), 'POST')
+        self.assertEqual(dict((k.lower(), v) for k, v in request.header_items())['x-api-key'], key)
+        self.assertEqual(json.loads(request.data), {'q': 'service desk', 'gl': 'br', 'hl': 'pt'})
+        self.assertNotIn(key, request.full_url)
+        response.__enter__.return_value.read.return_value = b'{"message":"error"}'
+        with mock.patch.object(serper.urllib.request, 'build_opener', return_value=opener):
+            with self.assertRaises(config.ConfigurationError):
+                serper.check_access(key)
+
+    def test_serper_saves_correct_provider_and_preserves_other_configuration(self):
+        key = 'fictitious-serper-key-1234567890'
+        original = b'POSTGRES_PASSWORD=fictitious-db-secret\nANTHROPIC_API_KEY=fictitious-anthropic-secret\nSEARCH_PROVIDER=serpapi\nSERPAPI_API_KEY=legacy-fictitious\nSEARCH_MONTHLY_LIMIT=123\n'
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            path = root / '.env'
+            path.write_bytes(original)
+            output = io.StringIO()
+            with mock.patch.object(serper, 'ROOT', root), mock.patch.object(serper.os, 'geteuid', return_value=0), \
+                 mock.patch.object(serper.sys, 'stdin', io.StringIO(json.dumps({'key': key}))), \
+                 mock.patch.object(serper, 'check_access') as access, contextlib.redirect_stdout(output):
+                serper.main()
+            access.assert_called_once_with(key)
+            text = path.read_text()
+            self.assertIn('SERPER_API_KEY=' + key + '\n', text)
+            self.assertIn('SEARCH_PROVIDER=serper\n', text)
+            self.assertNotIn('SEARCH_PROVIDER=serpapi\n', text)
+            for value in ['POSTGRES_PASSWORD=fictitious-db-secret', 'ANTHROPIC_API_KEY=fictitious-anthropic-secret', 'SERPAPI_API_KEY=legacy-fictitious', 'SEARCH_MONTHLY_LIMIT=123']:
+                self.assertIn(value + '\n', text)
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            backups = list((root / 'backups').glob('*/env.before'))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(backups[0].read_bytes(), original)
+            self.assertIn('1 consulta', output.getvalue())
+            for secret in [key, 'fictitious-db-secret', 'fictitious-anthropic-secret', 'legacy-fictitious']:
+                self.assertNotIn(secret, output.getvalue())
+
+    def test_serper_rejects_invalid_payload_and_auth_failure_does_not_write(self):
+        for value in [{'key': 'short'}, {'key': 1}, {'key': 'a' * 201}, {'key': 'a' * 40, 'model': 'bad'}, []]:
+            with self.assertRaises(config.ConfigurationError):
+                serper.read_key(io.StringIO(json.dumps(value)))
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            original = b'POSTGRES_PASSWORD=fictitious-password\n'
+            (root / '.env').write_bytes(original)
+            with mock.patch.object(serper, 'ROOT', root), mock.patch.object(serper.os, 'geteuid', return_value=0), \
+                 mock.patch.object(serper.sys, 'stdin', io.StringIO(json.dumps({'key': 'fictitious-serper-key-1234567890'}))), \
+                 mock.patch.object(serper, 'check_access', side_effect=serper.urllib.error.HTTPError('https://google.serper.dev/autocomplete', 401, 'Unauthorized', {}, None)), contextlib.redirect_stdout(io.StringIO()):
+                with self.assertRaises(serper.urllib.error.HTTPError):
+                    serper.main()
+            self.assertEqual((root / '.env').read_bytes(), original)
+            self.assertFalse((root / 'backups').exists())
+
     def test_serpapi_private_payload_rejects_extra_fields_and_invalid_keys(self):
         key = 'fictitious-serpapi-key-1234567890'
         self.assertEqual(serp.read_key(io.StringIO(json.dumps({'key': key}))), key)

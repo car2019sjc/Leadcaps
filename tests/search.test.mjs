@@ -5,6 +5,8 @@ import {readFile} from 'node:fs/promises';
 import pg from 'pg';
 import {validateSearch,collectSignals,selectedResearch} from '../backend/search-contract.mjs';
 import {serpapiProvider} from '../backend/serpapi.mjs';
+import {serperProvider} from '../backend/serper.mjs';
+import {searchProvider} from '../backend/search-provider.mjs';
 import {validateResearch} from '../backend/content-contract.mjs';
 import {createApi} from '../backend/server.mjs';
 import {migrate} from '../backend/db.mjs';
@@ -35,6 +37,28 @@ test('SerpAPI usa endpoint fixo e não propaga chave nem corpo de erro',async()=
   }
   const offline=serpapiProvider({key,fetchImpl:async()=>{throw new TypeError('Network '+key);}});await assert.rejects(()=>offline.autocomplete('termo',{country:'br',language:'pt'}),error=>error.code==='search_unknown'&&!error.message.includes(key));
 });
+test('Serper envia chave somente no header e preserva falha, vazio e metadados ausentes',async()=>{
+  const key='fictitious-serper-key-1234567890';let calls=0;
+  const provider=serperProvider({key,fetchImpl:async(url,options)=>{
+    calls++;assert.equal(url,'https://google.serper.dev/autocomplete');assert.ok(!url.includes(key));assert.equal(options.method,'POST');assert.equal(options.redirect,'error');assert.equal(options.headers['X-API-KEY'],key);
+    assert.deepEqual(JSON.parse(options.body),{q:'service desk',gl:'br',hl:'pt'});
+    return new Response(JSON.stringify({suggestions:[{value:' service desk preço '}],credits:1}));
+  }});
+  const result=await provider.autocomplete('service desk',{country:'br',language:'pt'});assert.equal(calls,1);assert.deepEqual(result,{items:[{text:'service desk preço'}],provider_id:null,provider_created_at:null});assert.ok(!JSON.stringify(result).includes(key));
+  const source=data=>serperProvider({key,fetchImpl:async()=>new Response(JSON.stringify(data))});
+  assert.deepEqual((await source({suggestions:[]}).autocomplete('termo',{country:'br',language:'pt'})).items,[]);
+  for(const data of [{},{suggestions:'invalid'},{suggestions:[{value:''}]},{message:key},{error:key}])await assert.rejects(()=>source(data).autocomplete('termo',{country:'br',language:'pt'}),e=>/^search_/.test(e.code)&&!e.message.includes(key));
+  const unauthorized=serperProvider({key,fetchImpl:async()=>new Response(key,{status:401})});await assert.rejects(()=>unauthorized.autocomplete('termo',{country:'br',language:'pt'}),e=>e.code==='search_http_401'&&!e.message.includes(key));
+  const unknown=serperProvider({key,fetchImpl:async()=>{throw new Error(key);}});await assert.rejects(()=>unknown.autocomplete('termo',{country:'br',language:'pt'}),e=>e.code==='search_unknown'&&!e.message.includes(key));
+});
+test('seleção de fonte é explícita, preserva instalação SerpAPI e não confunde credenciais',()=>{
+  assert.equal(searchProvider({env:{}}).name,'Serper');assert.equal(searchProvider({env:{}}).enabled,false);
+  assert.equal(searchProvider({env:{SERPAPI_API_KEY:'old-fictitious'}}).name,'SerpAPI');
+  assert.equal(searchProvider({env:{SERPER_API_KEY:'new-fictitious',SERPAPI_API_KEY:'old-fictitious'}}).name,'Serper');
+  assert.equal(searchProvider({env:{SEARCH_PROVIDER:'serper',SERPAPI_API_KEY:'old-fictitious'}}).enabled,false);
+  assert.equal(searchProvider({env:{SEARCH_PROVIDER:'serpapi',SERPER_API_KEY:'new-fictitious'}}).enabled,false);
+  assert.throws(()=>searchProvider({env:{SEARCH_PROVIDER:'invalid'}}),/SEARCH_PROVIDER/);
+});
 test('PostgreSQL: coleta, revisão, seleção editorial, rastreabilidade, falha parcial e limite', {skip:!process.env.TEST_DATABASE_URL},async t=>{
   const admin=new pg.Pool({connectionString:process.env.TEST_DATABASE_URL}),schema='search_'+randomUUID().replaceAll('-','');await admin.query(`CREATE SCHEMA ${schema}`);
   const pool=new pg.Pool({connectionString:process.env.TEST_DATABASE_URL,options:`-c search_path=${schema}`,max:4});let server,calls=0;
@@ -44,7 +68,8 @@ test('PostgreSQL: coleta, revisão, seleção editorial, rastreabilidade, falha 
   const userId=randomUUID();await pool.query('INSERT INTO app_users(id,login,display_name,password_hash) VALUES($1,$2,$3,$4)',[userId,'pesquisa','Pesquisador fictício',await passwordHash('senha-ficticia-1234')]);
   const old=researchInput(),legacyId=randomUUID();await pool.query('INSERT INTO content_researches(id,request_id,payload_hash,created_by,data) VALUES($1,$2,$3,$4,$5)',[legacyId,old.request_id,'legacy',userId,JSON.stringify(validateResearch(old))]);
   await migrate(pool);await migrate(pool);assert.equal((await pool.query('SELECT id FROM content_researches WHERE id=$1',[legacyId])).rowCount,1);
-  server=await createApi({pool,origins:['https://test.example'],searchProvider:fakeSearchProvider(()=>calls++),searchMonthlyLimit:8,searchHourlyLimit:8,contentProvider:{enabled:true,model:'fictitious-model',generate:async(action,input)=>({data:action==='opportunities'?{opportunities:[opportunityFixture(input.research)]}:briefFixture(input)})}});
+  const provider=fakeSearchProvider(()=>calls++);
+  server=await createApi({pool,origins:['https://test.example'],searchProvider:provider,searchMonthlyLimit:10,searchHourlyLimit:10,contentProvider:{enabled:true,model:'fictitious-model',generate:async(action,input)=>({data:action==='opportunities'?{opportunities:[opportunityFixture(input.research)]}:briefFixture(input)})}});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=`http://127.0.0.1:${server.address().port}`;let token='';
   const call=(path,method='GET',body)=>fetch(base+path,{method,headers:{Origin:'https://test.example',...(token?{Authorization:'Bearer '+token}:{}),...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});
   assert.equal((await call('/v1/search/config')).status,401);token=(await(await call('/v1/sessions','POST',{login:'pesquisa',password:'senha-ficticia-1234'})).json()).token;
@@ -61,11 +86,18 @@ test('PostgreSQL: coleta, revisão, seleção editorial, rastreabilidade, falha 
   const editorial=await(await call(`/v1/content/researches/${researchId}`)).json();assert.equal(editorial.item.data.signals[0].collection.run_id,runId);assert.equal(editorial.item.data.signals[0].id,how.id);assert.equal(editorial.item.data.signals[0].metrics.cpc.value,null);
   const job=await(await call('/v1/content/jobs','POST',{request_id:randomUUID(),research_id:researchId,action:'opportunities'})).json();await server.content.tick();const done=await(await call(`/v1/content/jobs/${job.job.id}`)).json();assert.equal(done.job.status,'completed');
   const generated=await(await call(`/v1/content/researches/${researchId}`)).json();assert.equal(generated.opportunities[0].data.evidence_quality.verification,'collected_from_provider');
+  provider.name='Serper';
   const partialInput={...searchInput(),queries:['service desk','fail','not executed']};const partial=(await(await call('/v1/search/runs','POST',partialInput)).json()).id;await server.discovery.tick();await server.discovery.tick();
   const partialData=await(await call(`/v1/search/runs/${partial}`)).json();assert.equal(partialData.run.status,'partial');assert.equal(partialData.queries[2].status,'skipped');assert.equal(calls,5);
   const comparison=await(await call(`/v1/search/runs/${partial}/comparison`)).json();assert.equal(comparison.previous_id,runId);assert.equal(comparison.different_plan,true);
+  assert.equal(comparison.different_provider,true);assert.equal(partialData.run.data.provider,'Serper');
+  const newerExport=await(await call(`/v1/search/runs/${partial}/editorial`,'POST',{request_id:randomUUID(),expected_revision:1,signal_ids:[partialData.signals[0].id]})).json();
+  const newer=await(await call(`/v1/content/researches/${newerExport.research_id}`)).json();assert.equal(newer.item.data.search_origin.provider,'Serper');assert.equal(newer.item.data.signals[0].collection.provider,'Serper');assert.equal(newer.item.data.signals[0].source,'Google Autocomplete via Serper');
+  assert.equal((await(await call(`/v1/content/researches/${researchId}`)).json()).item.data.search_origin.provider,'SerpAPI');
   const interrupted=(await(await call('/v1/search/runs','POST',{...searchInput(),queries:['one','two']})).json()).id;
   await pool.query("UPDATE search_queries SET status='running' WHERE run_id=$1 AND position=0",[interrupted]);await server.discovery.tick();const recovered=await(await call(`/v1/search/runs/${interrupted}`)).json();assert.equal(recovered.run.status,'unknown');assert.equal(calls,5);
+  const changed=(await(await call('/v1/search/runs','POST',{...searchInput(),queries:['change','not executed']})).json()).id;
+  provider.name='SerpAPI';await server.discovery.tick();const stopped=await(await call(`/v1/search/runs/${changed}`)).json();assert.equal(stopped.run.data.provider,'Serper');assert.equal(stopped.run.status,'failed');assert.equal(stopped.queries[0].error_code,'search_provider_changed');assert.equal(stopped.queries[1].status,'skipped');assert.equal(calls,5);
   assert.equal((await call('/v1/search/runs','POST',{...searchInput(),queries:['over limit']})).status,429);
-  assert.equal((await(await call('/v1/search/config')).json()).reserved.month,8);
+  assert.equal((await(await call('/v1/search/config')).json()).reserved.month,10);
 });

@@ -5,7 +5,8 @@ import { object, id, strings, validateResearch } from './content-contract.mjs';
 export const normalize = value => value.normalize('NFKC').toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ').trim();
 export const DEFAULT_GROUPS = ['Como fazer', 'Definição', 'Motivos e causas', 'Preço e contratação', 'Comparações', 'Problemas', 'Local e momento', 'Termos relacionados'];
 export const signature = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-export function validateSearch(input) {
+export function validateSearch(input,{provider='SerpAPI'}={}) {
+  if(!['SerpAPI','Serper'].includes(provider))throw new HttpError(503,'Provedor de pesquisa não configurado.');
   object(input, ['request_id','context','theme','profile','seed','queries','exclusions','country','language']);
   const editorial = validateResearch({request_id:input.request_id,context:input.context,theme:input.theme,profile:input.profile,signals:[],allow_hypothesis:true});
   const seed = text(input.seed,'Termo inicial',2,100);
@@ -13,7 +14,7 @@ export function validateSearch(input) {
   if (new Set(queries.map(normalize)).size !== queries.length) throw new HttpError(400,'Remova consultas repetidas do plano.');
   const exclusions = strings(input.exclusions,'Exclusões',20,0,60);
   if (!['br','us','pt','es','mx'].includes(input.country) || !['pt','en','es'].includes(input.language)) throw new HttpError(400,'País ou idioma de pesquisa inválido.');
-  return {context:editorial.context,theme:editorial.theme,profile:editorial.profile,seed,seed_normalized:normalize(seed),queries,exclusions,country:input.country,language:input.language,provider:'SerpAPI',platform:'Google Autocomplete',client:'chrome',schema_version:'search.run.v1'};
+  return {context:editorial.context,theme:editorial.theme,profile:editorial.profile,seed,seed_normalized:normalize(seed),queries,exclusions,country:input.country,language:input.language,provider,platform:'Google Autocomplete',...(provider==='SerpAPI'?{client:'chrome'}:{}),schema_version:'search.run.v1'};
 }
 export function initialClassification(value, exclusions=[]) {
   const clean = normalize(value);
@@ -61,13 +62,14 @@ export function selectedResearch(run, signals, selectedIds, requestId) {
   if (!Array.isArray(selectedIds) || selectedIds.length < 1 || selectedIds.length > 80 || new Set(selectedIds).size !== selectedIds.length) throw new HttpError(400,'Selecione de 1 a 80 expressões, sem repetição. A coleta completa permanece salva.');
   const selected = selectedIds.map(value=>signals.find(s=>s.id===value));
   if (selected.some(s=>!s || s.disposition==='excluded')) throw new HttpError(400,'Há expressão inexistente ou excluída na seleção.');
-  const snapshot = validateResearch({request_id:requestId,context:run.data.context,theme:run.data.theme,profile:run.data.profile,allow_hypothesis:false,signals:selected.map(s=>({text:s.text,source:'Google Autocomplete via SerpAPI',url:'https://www.google.com/search?'+new URLSearchParams({q:s.text,gl:run.data.country,hl:run.data.language}),collected_at:new Date(s.occurrences[0].collected_at).toISOString().slice(0,10)}))});
+  const provider=run.data.provider;
+  const snapshot = validateResearch({request_id:requestId,context:run.data.context,theme:run.data.theme,profile:run.data.profile,allow_hypothesis:false,signals:selected.map(s=>({text:s.text,source:'Google Autocomplete via '+provider,url:'https://www.google.com/search?'+new URLSearchParams({q:s.text,gl:run.data.country,hl:run.data.language}),collected_at:new Date(s.occurrences[0].collected_at).toISOString().slice(0,10)}))});
   snapshot.signals.forEach((item,index)=>{
     const original=selected[index];
-    Object.assign(item,{id:original.id,kind:'collected_autocomplete',duplicate_of:null,classification:{group:original.group,disposition:original.disposition,reason:original.reason,author_type:original.author_type},collection:{run_id:run.id,query_ids:[...new Set(original.occurrences.map(o=>o.query_id))],provider:'SerpAPI',platform:'Google Autocomplete',country:run.data.country,language:run.data.language,collected_at:original.occurrences[0].collected_at}});
+    Object.assign(item,{id:original.id,kind:'collected_autocomplete',duplicate_of:null,classification:{group:original.group,disposition:original.disposition,reason:original.reason,author_type:original.author_type},collection:{run_id:run.id,query_ids:[...new Set(original.occurrences.map(o=>o.query_id))],provider,platform:'Google Autocomplete',country:run.data.country,language:run.data.language,collected_at:original.occurrences[0].collected_at}});
   });
   snapshot.schema_version='content.research.v2';
-  snapshot.search_origin={run_id:run.id,revision:run.latest_revision,status:run.status,provider:'SerpAPI',platform:'Google Autocomplete',country:run.data.country,language:run.data.language};
+  snapshot.search_origin={run_id:run.id,revision:run.latest_revision,status:run.status,provider,platform:'Google Autocomplete',country:run.data.country,language:run.data.language};
   if (Buffer.byteLength(JSON.stringify(snapshot))>100000) throw new HttpError(400,'Seleção muito extensa. Escolha menos expressões; nenhum resultado foi descartado.');
   return snapshot;
 }

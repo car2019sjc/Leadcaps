@@ -2,11 +2,11 @@ import { randomUUID } from 'node:crypto';
 import { HttpError } from './validation.mjs';
 import { id, object } from './content-contract.mjs';
 import { validateSearch, collectSignals, reviewSignal, selectedResearch, signature, normalize } from './search-contract.mjs';
-import { serpapiProvider } from './serpapi.mjs';
+import { searchProvider } from './search-provider.mjs';
 
 const limit=(value,fallback,max)=>Number.isInteger(value)&&value>=1&&value<=max?value:fallback;
 const queryFields='id,run_id,position,query_text,status,started_at,finished_at,result,provider_id,provider_created_at,error_code,error_message';
-export function createSearchService({pool,provider=serpapiProvider(),monthlyLimit=200,hourlyLimit=40}) {
+export function createSearchService({pool,provider=searchProvider(),monthlyLimit=200,hourlyLimit=40}) {
   monthlyLimit=limit(monthlyLimit,200,10000);hourlyLimit=limit(hourlyLimit,40,1000);
   let timer,running,stopping=false;
   const abort=new AbortController();
@@ -28,12 +28,12 @@ export function createSearchService({pool,provider=serpapiProvider(),monthlyLimi
     return {run,queries,signals,exports,groups:[...new Set(signals.map(s=>s.group))],occurrences:signals.reduce((n,s)=>n+s.occurrences.length,0)};
   }
   async function create(input,user) {
-    const data=validateSearch(input),digest=signature(data);
+    const data=validateSearch(input,{provider:provider.name}),digest=signature(data);
     return transaction(async client=>{
       await client.query('SELECT pg_advisory_xact_lock(741309232)');
       const existing=(await client.query('SELECT id,payload_hash FROM search_runs WHERE created_by=$1 AND request_id=$2',[user.id,input.request_id])).rows[0];
       if(existing){if(existing.payload_hash!==digest)throw new HttpError(409,'Solicitação já usada para outro plano de pesquisa.');return {id:existing.id,reused:true};}
-      if(!provider.enabled)throw new HttpError(503,'Configure a SerpAPI na VPS para pesquisar automaticamente.');
+      if(!provider.enabled)throw new HttpError(503,'Configure o provedor de pesquisa na VPS para pesquisar automaticamente.');
       const counts=await counters(client);
       if(counts.month+data.queries.length>monthlyLimit || counts.hour+data.queries.length>hourlyLimit)throw new HttpError(429,'O plano excede o limite de consultas reservado no Leadcaps. Reduza as consultas ou aguarde a renovação do limite.');
       if((await client.query("SELECT count(*)::integer AS n FROM search_runs WHERE status IN ('queued','running')")).rows[0].n>=4)throw new HttpError(429,'Há coletas aguardando. Aguarde a conclusão.');
@@ -67,12 +67,13 @@ export function createSearchService({pool,provider=serpapiProvider(),monthlyLimi
       await client.query("UPDATE search_runs SET status='running' WHERE id=$1",[next.run_id]);
       try {
         if(!provider.enabled)throw Object.assign(new Error(),{code:'search_disabled'});
+        if(next.data.provider!==provider.name)throw Object.assign(new Error(),{code:'search_provider_changed'});
         const result=await provider.autocomplete(next.query_text,next.data,abort.signal);
         await client.query("UPDATE search_queries SET status=$2,result=$3,provider_id=$4,provider_created_at=$5,finished_at=clock_timestamp() WHERE id=$1",[next.id,result.items.length?'completed':'empty',JSON.stringify(result.items),result.provider_id,result.provider_created_at]);
       }catch(error){
-        const code=/^search_(http_\d+|invalid|unknown|provider_error|disabled)$/.test(error.code||'')?error.code:'search_invalid';
+        const code=/^search_(http_\d+|invalid|unknown|provider_error|provider_changed|disabled)$/.test(error.code||'')?error.code:'search_invalid';
         const uncertain=code==='search_unknown';
-        const message=uncertain?'Consulta interrompida; consumo incerto. Não haverá repetição automática.':code==='search_http_429'?'Limite da fonte atingido. O restante do plano foi interrompido.':'A consulta falhou. Confira configuração, cota e parâmetros; o restante do plano foi interrompido.';
+        const message=uncertain?'Consulta interrompida; consumo incerto. Não haverá repetição automática.':code==='search_provider_changed'?'O provedor configurado mudou. O plano foi interrompido para preservar sua origem; crie uma nova coleta.':code==='search_http_429'?'Limite da fonte atingido. O restante do plano foi interrompido.':'A consulta falhou. Confira configuração, cota e parâmetros; o restante do plano foi interrompido.';
         await client.query("UPDATE search_queries SET status=$2,error_code=$3,error_message=$4,finished_at=clock_timestamp() WHERE id=$1",[next.id,uncertain?'unknown':'failed',code,message]);
         await client.query("UPDATE search_queries SET status='skipped',error_code='plan_stopped',error_message='Consulta não executada após falha no plano.',finished_at=clock_timestamp() WHERE run_id=$1 AND status='queued'",[next.run_id]);
       }
@@ -84,13 +85,13 @@ export function createSearchService({pool,provider=serpapiProvider(),monthlyLimi
     if(!url.pathname.startsWith('/v1/search/'))return false;
     const path=url.pathname.slice('/v1/search/'.length);
     if(path==='config'&&req.method==='GET') {
-      send(200,{enabled:provider.enabled,provider:'SerpAPI',platform:'Google Autocomplete',max_queries:8,monthly_limit:monthlyLimit,hourly_limit:hourlyLimit,reserved:await counters(),metrics_available:false});return true;
+      send(200,{enabled:provider.enabled,provider:provider.name,platform:'Google Autocomplete',max_queries:8,monthly_limit:monthlyLimit,hourly_limit:hourlyLimit,reserved:await counters(),metrics_available:false});return true;
     }
     if(path==='runs'&&req.method==='POST'){const result=await create(await readJson(req),user);send(result.reused?200:202,result);return true;}
     if(path==='runs'&&req.method==='GET') {
       const offset=Number(url.searchParams.get('offset')||0);
       if(!Number.isInteger(offset)||offset<0||offset>100000)throw new HttpError(400,'Página inválida.');
-      const {rows}=await pool.query("SELECT r.id,r.created_at,r.status,r.data->>'seed' AS seed,r.data->>'country' AS country,r.data->>'language' AS language,u.display_name AS author FROM search_runs r JOIN app_users u ON u.id=r.created_by ORDER BY r.created_at DESC,r.id DESC LIMIT 21 OFFSET $1",[offset]);
+      const {rows}=await pool.query("SELECT r.id,r.created_at,r.status,r.data->>'seed' AS seed,r.data->>'country' AS country,r.data->>'language' AS language,r.data->>'provider' AS provider,u.display_name AS author FROM search_runs r JOIN app_users u ON u.id=r.created_by ORDER BY r.created_at DESC,r.id DESC LIMIT 21 OFFSET $1",[offset]);
       send(200,{items:rows.slice(0,20),next_offset:rows.length>20?offset+20:null});return true;
     }
     const match=/^runs\/([^/]+)(?:\/(reviews|editorial|comparison))?$/.exec(path);
@@ -104,7 +105,7 @@ export function createSearchService({pool,provider=serpapiProvider(),monthlyLimi
       const older=previous?await detail(previous.id):null;
       if(!older)throw new HttpError(404,'Ainda não há outra coleta anterior desse termo, país e idioma.');
       const a=new Map(current.signals.map(s=>[s.normalized,s.text])),b=new Map(older.signals.map(s=>[s.normalized,s.text]));
-      send(200,{previous_id:older.run.id,previous_at:older.run.created_at,current_at:current.run.created_at,different_plan:signature(current.run.data.queries)!==signature(older.run.data.queries),added:[...a].filter(([key])=>!b.has(key)).map(([,v])=>v),absent:[...b].filter(([key])=>!a.has(key)).map(([,v])=>v),shared:[...a.keys()].filter(key=>b.has(key)).length});return true;
+      send(200,{previous_id:older.run.id,previous_provider:older.run.data.provider,current_provider:current.run.data.provider,different_provider:older.run.data.provider!==current.run.data.provider,previous_at:older.run.created_at,current_at:current.run.created_at,different_plan:signature(current.run.data.queries)!==signature(older.run.data.queries),added:[...a].filter(([key])=>!b.has(key)).map(([,v])=>v),absent:[...b].filter(([key])=>!a.has(key)).map(([,v])=>v),shared:[...a.keys()].filter(key=>b.has(key)).length});return true;
     }
     if(req.method==='POST'&&operation==='reviews') {
       const input=await readJson(req);

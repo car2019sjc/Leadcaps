@@ -1,7 +1,7 @@
 param(
     [ValidatePattern('^[a-z_][a-z0-9_-]*@[A-Za-z0-9.-]+$')]
     [string]$SshTarget = 'root@177.153.38.233',
-    [ValidateSet('Anthropic', 'SerpAPI')]
+    [ValidateSet('Anthropic', 'SerpAPI', 'Serper')]
     [string]$Service = 'Anthropic'
 )
 
@@ -9,7 +9,7 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
 
 function New-LeadcapsCredentialDialog {
-    param([ValidateSet('Anthropic', 'SerpAPI')][string]$Service = 'Anthropic')
+    param([ValidateSet('Anthropic', 'SerpAPI', 'Serper')][string]$Service = 'Anthropic')
     Add-Type -AssemblyName System.Windows.Forms
     Add-Type -AssemblyName System.Drawing
     $form = New-Object System.Windows.Forms.Form
@@ -53,17 +53,18 @@ function New-LeadcapsCredentialDialog {
     $workspaceBox = New-Object System.Windows.Forms.TextBox
     $workspaceBox.SetBounds(18, 170, 552, 28)
     $form.Controls.Add($workspaceBox)
-    if ($Service -eq 'SerpAPI') { $workspaceLabel.Visible = $false; $workspaceBox.Visible = $false }
+    if ($Service -ne 'Anthropic') { $workspaceLabel.Visible = $false; $workspaceBox.Visible = $false }
     $modelLabel = New-Object System.Windows.Forms.Label
     $modelLabel.Text = 'Modelo: Claude Sonnet 5.5. A VPS verificara o acesso.'
     if ($Service -eq 'SerpAPI') { $modelLabel.Text = 'Google Autocomplete. A VPS validara a chave sem pesquisar.' }
+    if ($Service -eq 'Serper') { $modelLabel.Text = 'Valida com 1 consulta Google; pode consumir creditos Serper.' }
     $modelLabel.SetBounds(18, 210, 552, 24)
     $form.Controls.Add($modelLabel)
     $save = New-Object System.Windows.Forms.Button
     $save.Text = 'Salvar e aplicar'
     $save.SetBounds(308, 250, 142, 34)
     $save.Add_Click({
-        if ($keyBox.Text.Trim() -notmatch '^[A-Za-z0-9_.-]{20,500}$' -or ($Service -eq 'SerpAPI' -and $keyBox.Text.Trim().Length -gt 200)) {
+        if ($keyBox.Text.Trim() -notmatch '^[A-Za-z0-9_.-]{20,500}$' -or ($Service -ne 'Anthropic' -and $keyBox.Text.Trim().Length -gt 200)) {
             [void][System.Windows.Forms.MessageBox]::Show('Copie somente a chave da API e clique em Colar chave.', 'Leadcaps')
             return
         }
@@ -90,7 +91,7 @@ function Send-LeadcapsPrivateConfiguration {
         [hashtable]$Configuration,
         [string]$Destination,
         [string]$SshExecutable = 'ssh.exe',
-        [ValidateSet('Anthropic', 'SerpAPI')][string]$Service = 'Anthropic'
+        [ValidateSet('Anthropic', 'SerpAPI', 'Serper')][string]$Service = 'Anthropic'
     )
     $payload = ConvertTo-Json -InputObject $Configuration -Compress
     $previousPreference = $ErrorActionPreference
@@ -99,6 +100,7 @@ function Send-LeadcapsPrivateConfiguration {
         # The secret travels only through stdin. -T prevents remote terminal echo.
         $remoteCommand = 'cd /opt/leadcaps && python3 deploy/configure_anthropic.py --from-stdin'
         if ($Service -eq 'SerpAPI') { $remoteCommand = 'cd /opt/leadcaps && python3 deploy/configure_serpapi.py --from-stdin' }
+        if ($Service -eq 'Serper') { $remoteCommand = 'cd /opt/leadcaps && python3 deploy/configure_serper.py --from-stdin' }
         $payload | & $SshExecutable -T $Destination $remoteCommand
         $resultCode = $LASTEXITCODE
     } finally {
@@ -124,7 +126,7 @@ function Invoke-LeadcapsSshCommand {
 }
 
 function Start-LeadcapsWindowsConfiguration {
-    param([string]$Destination, [ValidateSet('Anthropic', 'SerpAPI')][string]$Service = 'Anthropic')
+    param([string]$Destination, [ValidateSet('Anthropic', 'SerpAPI', 'Serper')][string]$Service = 'Anthropic')
     if ($env:OS -ne 'Windows_NT') { throw 'Execute este configurador no Windows.' }
     if ([Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') { throw 'Inicie powershell.exe com o parametro -STA.' }
     [void](Get-Command ssh.exe -ErrorAction Stop)
@@ -143,7 +145,7 @@ function Start-LeadcapsWindowsConfiguration {
             workspace = $controls.WorkspaceBox.Text.Trim()
             model = 'claude-sonnet-5-5'
         }
-        if ($Service -eq 'SerpAPI') { $configuration = @{ key = $controls.KeyBox.Text.Trim() } }
+        if ($Service -ne 'Anthropic') { $configuration = @{ key = $controls.KeyBox.Text.Trim() } }
         Write-Host 'Validando e salvando a configuracao privada na VPS...'
         Send-LeadcapsPrivateConfiguration -Configuration $configuration -Destination $Destination -Service $Service
     } finally {
@@ -152,7 +154,7 @@ function Start-LeadcapsWindowsConfiguration {
         if ($null -ne $configuration) { $configuration['key'] = $null }
     }
     Write-Host 'Carregando a configuracao somente na API do Leadcaps...'
-    if ($Service -eq 'SerpAPI') {
+    if ($Service -ne 'Anthropic') {
         Invoke-LeadcapsSshCommand $Destination 'cd /opt/leadcaps && bash deploy/update-content.sh'
     } else {
         Invoke-LeadcapsSshCommand $Destination 'cd /opt/leadcaps && docker compose config --quiet && docker compose up -d --no-deps --force-recreate --wait --wait-timeout 150 api'

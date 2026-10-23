@@ -4,7 +4,7 @@ Projeto específico da OnSet Tecnologia para prospecção e desenvolvimento do m
 
 ## Estado atual
 
-A versão 0.4 acrescenta pesquisa automática de Google Autocomplete via SerpAPI: plano editável, coleta persistida, mapa de expressões, filtros, revisão de grupos e pertinência, comparação de amostras e seleção vinculada às oportunidades e briefings. Siga o [roteiro de instalação e uso pelo PowerShell](docs/pesquisa-automatica.md). A chave fica somente na VPS; há uma janela Windows com botão **Colar chave**.
+A versão 0.4.1 acrescenta suporte à Serper (`serper.dev`), utilizada por Rodrigues, para pesquisa automática de Google Autocomplete: plano editável, coleta persistida, mapa de expressões, filtros, revisão de grupos e pertinência, comparação de amostras e seleção vinculada às oportunidades e briefings. Siga o [roteiro de instalação e uso pelo PowerShell](docs/pesquisa-automatica.md). A chave fica somente na VPS; há uma janela Windows com botão **Colar chave**. Use `-Service Serper`; a validação faz uma consulta de teste e pode consumir créditos. O conector SerpAPI anterior permanece separado e cada coleta conserva sua fonte.
 
 O fluxo editorial 0.3 continua disponível: contexto, expressões manuais ou hipóteses, oportunidades revisáveis, briefing, versões, aprovação e exportação Markdown, com Anthropic no servidor. O piloto de pesquisa 0.4 responde à [correção de escopo](docs/pesquisa-automatica-prioridade.md), mas ainda exige validação de resultados reais. Agrupamento inicial usa regras revisáveis, não clusters semânticos validados. Não há volume/CPC, múltiplos canais, artigos ou publicação automática.
 
@@ -75,6 +75,6 @@ Sem `TEST_DATABASE_URL`, o teste de integração de banco é indicado como ignor
 
 ## Próxima etapa
 
-Instalar a versão 0.4 e validar descoberta e pertinência com temas reais, antes de ampliar redação. Métricas, agrupamento semântico, outros canais e o snapshot completo dos filtros são etapas posteriores. O contexto editorial e o score de contatos são objetos diferentes: prioridade de conteúdo não qualifica uma pessoa automaticamente.
+Instalar a versão 0.4.1 e validar descoberta e pertinência com temas reais, antes de ampliar redação. Métricas, agrupamento semântico, outros canais e o snapshot completo dos filtros são etapas posteriores. O contexto editorial e o score de contatos são objetos diferentes: prioridade de conteúdo não qualifica uma pessoa automaticamente.
 
 Os pesos e as regras do módulo são propostas próprias. A implementação não usa código nem algoritmo proprietário do AnswerThePublic.
