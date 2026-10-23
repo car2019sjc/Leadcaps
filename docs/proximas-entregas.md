@@ -1,7 +1,7 @@
 # Desenvolvimento do módulo
 
-1. Confirmar uso individual ou em equipe, destino do briefing e hospedagem pretendida.
-2. Definir persistência e autenticação necessárias, pois não existem no HTML recebido.
+1. Implantar a API e o PostgreSQL exclusivos na VPS, depois de confirmar HTTPS, proxy, origem Netlify e acesso operacional. Validar backup e retomada de bases.
+2. Confirmar se todos os usuários devem compartilhar as bases (comportamento implementado na v1) ou se serão necessárias permissões por base. Confirmar o destino do briefing.
 3. Acrescentar contexto empresarial e contexto de público a partir dos filtros escolhidos.
 4. Implementar importação de sinais reais com fonte, mercado, data e estado das métricas.
 5. Implementar pertinência antes da prioridade: relevante, revisão ou fora de contexto.

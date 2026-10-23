@@ -5,6 +5,19 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_USER: leadcaps_test
+          POSTGRES_PASSWORD: ci-only-password
+          POSTGRES_DB: leadcaps_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U leadcaps_test -d leadcaps_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      TEST_DATABASE_URL: postgres://leadcaps_test:ci-only-password@127.0.0.1:5432/leadcaps_test
     steps:
       - uses: actions/checkout@v6
         with:
@@ -12,4 +25,21 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
+      - run: npm ci --ignore-scripts
       - run: npm run validate
+      - run: npx playwright install --with-deps chromium --only-shell
+      - run: npm run test:ui
+      - run: docker compose --env-file deploy/ci.env config --quiet
+      - run: docker build -t leadcaps-api:test .
+      - uses: actions/upload-artifact@v7
+        with:
+          name: leadcaps-netlify-demo
+          path: dist/index.html
+          retention-days: 14
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: evidencias-interface-ficticia
+          path: test-results/*.png
+          if-no-files-found: ignore
+          retention-days: 7

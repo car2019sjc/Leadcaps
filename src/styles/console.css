@@ -394,3 +394,15 @@ tbody tr.sel{background:#FFFAF0}
   .top{padding:12px 14px}
 }
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* Biblioteca de bases persistidas */
+[hidden]{display:none!important}
+.db-box{width:min(700px,100%)}
+.db-field{display:block;font-size:13px;font-weight:600;color:var(--navy);margin:14px 0}
+.db-field input,.db-field textarea{display:block;width:100%;margin-top:6px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;font:inherit;color:var(--navy);background:#fff;box-sizing:border-box}
+.db-field textarea{resize:vertical;min-height:70px}
+.db-field input:focus,.db-field textarea:focus{outline:2px solid var(--amber);outline-offset:1px}
+.db-actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
+.db-card{border:1px solid var(--line);border-radius:10px;padding:14px;margin:12px 0}
+.db-card strong{overflow-wrap:anywhere;color:var(--navy)}
+.db-card p{font-size:12px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere;margin:6px 0 12px}

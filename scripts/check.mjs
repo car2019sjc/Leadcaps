@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { root } from './build.mjs';
 
 let count = 0;
-for (const folder of ['src/js', 'scripts', 'tests']) {
+for (const folder of ['src/js', 'scripts', 'tests', 'backend']) {
   for (const file of await readdir(resolve(root, folder))) {
     if (!/\.m?js$/.test(file)) continue;
     const result = spawnSync(process.execPath, ['--check', resolve(root, folder, file)], { encoding: 'utf8' });

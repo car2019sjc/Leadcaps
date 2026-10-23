@@ -793,6 +793,13 @@ drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) i
 function msg(cls, html) { $('#uplmsg').innerHTML = `<div class="msg msg--${cls}">${html}</div>`; }
 
 async function ingest(file) {
+  if (DB.busy) return;
+  const description = $('#baseDescription').value.trim();
+  if (description.length < 5) {
+    $('#baseDescription').focus();
+    return msg('err', 'Descreva do que se trata esta base antes de escolher a planilha (mínimo 5 caracteres).');
+  }
+  DB.busy = true; $('#file').disabled = true;
   msg('busy', `Lendo <b>${esc(file.name)}</b>…`);
   try {
     const raw = await ING.readFile(file);
@@ -807,6 +814,16 @@ async function ingest(file) {
     const rows = ING.build(raw, map);
     if (!rows.length) return msg('err', 'Nenhum contato válido foi encontrado no arquivo.');
 
+    if (DB.connected()) {
+      msg('busy', 'Salvando a nova base no banco…');
+      const item = await DB.save(file, rows, description);
+      const date = new Date(item.imported_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      msg('ok', `<b>${esc(item.description)}</b> salva com ${fmt(item.record_count)} contatos em ${date} (Brasília).<br>A base exibida no painel continua a mesma. `);
+      const button = document.createElement('button'); button.className = 'btn btn--primary'; button.textContent = 'Usar esta base';
+      button.onclick = () => DB.activate(item.id); $('#uplmsg').append(button);
+      return;
+    }
+
     const antes = MODO === 'add' ? ROWS.length : 0;
     const fus = fundir(MODO === 'add' ? ROWS : [], rows);
     const finais = marcarRepetidos(fus.rows);
@@ -814,7 +831,7 @@ async function ingest(file) {
     ROWS = indexRows(finais);
 
     const arquivos = (SOURCE && MODO === 'add' && SOURCE.files ? SOURCE.files : []).concat([file.name]);
-    SOURCE = { name: arquivos.length > 1 ? `${arquivos.length} arquivos` : file.name,
+    SOURCE = { name: description, description, local: true,
                files: arquivos, when: new Date(), n: ROWS.length };
     SEL.clear(); F = BLANK(); page = 1;
     $('#q').value = ''; $('#emin').value = ''; $('#emax').value = ''; $('#cisearch').value = ''; $('#rmin').value = ''; $('#rmax').value = ''; $('#exq').value = ''; if ($('#mapbusca')) $('#mapbusca').value = '';
@@ -859,8 +876,27 @@ async function ingest(file) {
     setTimeout(closeUpl, 1600);
   } catch (err) {
     console.error(err);
-    msg('err', 'Não consegui ler o arquivo: ' + esc(err.message || err));
+    msg('err', 'A carga não foi concluída: ' + esc(err.message || err));
+  } finally {
+    DB.busy = false; $('#file').disabled = false;
   }
+}
+
+function activateSavedBase(item) {
+  ROWS = indexRows(marcarRepetidos(hydrate(item.pack)));
+  SOURCE = { id: item.id, name: item.description, description: item.description, files: [item.filename],
+    when: new Date(item.imported_at), n: item.record_count, importedBy: item.imported_by, local: false };
+  SEL.clear(); F = BLANK(); page = 1;
+  for (const id of ['q', 'emin', 'emax', 'cisearch', 'rmin', 'rmax', 'exq', 'mapbusca']) if ($('#' + id)) $('#' + id).value = '';
+  document.querySelectorAll('[data-preset]').forEach(x => x.setAttribute('aria-pressed', 'false'));
+  render();
+}
+
+function clearSavedBase() {
+  if (!SOURCE?.id) return;
+  ROWS = indexRows(hydrate(PACK)); SOURCE = null; SEL.clear(); F = BLANK(); page = 1;
+  for (const id of ['q', 'emin', 'emax', 'cisearch', 'rmin', 'rmax', 'exq', 'mapbusca']) if ($('#' + id)) $('#' + id).value = '';
+  render();
 }
 
 window.ingest = ingest;
@@ -1020,7 +1056,7 @@ function renderStamp() {
     : { day: '2-digit', month: '2-digit', year: 'numeric' });
   if (SOURCE) {
     el.className = 'stamp stamp--live';
-    el.innerHTML = `<i></i>Atualizada em ${fdate(SOURCE.when, true)}`;
+    el.innerHTML = `<i></i>Importada em ${fdate(SOURCE.when, true)}`;
     el.title = `Base carregada do arquivo ${SOURCE.name} · código v${APP_BUILD}`;
   } else {
     const d = new Date(BASE_DATE + 'T12:00:00');
@@ -1061,7 +1097,7 @@ function renderSource() {
   const d = SOURCE.when.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   const listaArq = SOURCE.files && SOURCE.files.length > 1
     ? `<b>${esc(SOURCE.name)}</b> (${SOURCE.files.map(esc).join(' + ')})` : `<b>${esc(SOURCE.name)}</b>`;
-  bar.innerHTML = `<span>Exibindo ${listaArq} · ${fmt(SOURCE.n)} contatos · última carga em ${d}</span>
+  bar.innerHTML = `<span>Exibindo ${listaArq} · ${fmt(SOURCE.n)} contatos · importada em ${d}${SOURCE.importedBy ? ' · ' + esc(SOURCE.importedBy) : ''}${SOURCE.local ? ' · somente nesta sessão' : ' · preservada no banco'}</span>
     <span class="srcbar__r">
       <button class="btn" id="saveApp" title="Gera uma cópia DESTE arquivo com a base atual embutida. O código gerado é o deste arquivo (v${APP_BUILD}), não uma versão mais nova.">Gerar app com esta base</button>
       <button class="btn" id="restore">Voltar à base original</button>
@@ -1400,4 +1436,5 @@ function iaConfig(forcar) {
 }
 
 render();
+DB.init('__API_URL__');
 

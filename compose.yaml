@@ -1,0 +1,55 @@
+name: leadcaps
+services:
+  db:
+    image: postgres:17-bookworm
+    environment:
+      POSTGRES_DB: leadcaps
+      POSTGRES_USER: leadcaps
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD no arquivo .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: [database]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U leadcaps -d leadcaps']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.50
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+  api:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://leadcaps:${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD}@db:5432/leadcaps
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?Configure ALLOWED_ORIGINS}
+      PORT: '8080'
+    ports:
+      - '127.0.0.1:${API_PORT:-8310}:8080'
+    networks: [database, edge]
+    depends_on:
+      db: {condition: service_healthy}
+    init: true
+    read_only: true
+    tmpfs: [/tmp:size=16m,mode=1777]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.50
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:8080/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options: {max-size: 10m, max-file: '3'}
+volumes:
+  postgres_data:
+networks:
+  database:
+    internal: true
+  edge:

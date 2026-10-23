@@ -125,6 +125,7 @@
     </div>
     <span class="stamp" id="stamp"></span>
     <div class="top__acts">
+      <button class="btn" id="btnBases">Conectar banco</button>
       <button class="btn" id="btnUp"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9M8 13l4-4 4 4M4 3h16"></path></svg> Atualizar base</button>
       <button class="btn" id="copyMails"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15V5a2 2 0 012-2h10"></path></svg> Copiar e-mails</button>
       <button class="btn" id="expCsv"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path></svg> CSV</button>
@@ -241,12 +242,16 @@
     <button class="dr__x" id="uplx" aria-label="Fechar" style="color:#7E93A3">×</button>
     <h2 class="modal__t">Atualizar a base de contatos</h2>
     <p class="modal__p">Envie a planilha exportada do Apollo em <b>.csv</b> ou <b>.xlsx</b>. O app aplica as mesmas regras de normalização e recalcula o score ICP de cada contato. A coluna <b>Annual Revenue</b> é lida em <b>dólares americanos (USD)</b>, como o Apollo exporta.</p>
-    <div class="modo" role="radiogroup" aria-label="Modo de carga">
+    <label class="db-field" for="baseDescription">Descreva esta base (obrigatório)
+      <textarea id="baseDescription" minlength="5" maxlength="500" rows="2" placeholder="Ex.: contatos de CIOs de São Paulo — pesquisa de outubro" required></textarea>
+    </label>
+    <p class="modal__p" id="importDestination"></p>
+    <div class="modo" id="importMode" role="radiogroup" aria-label="Modo de carga local">
       <button type="button" data-modo="rep" aria-pressed="true">
-        <b>Substituir a base</b><span>troca tudo pelo conteúdo do arquivo</span>
+        <b>Substituir no painel</b><span>troca os contatos apenas nesta sessão</span>
       </button>
       <button type="button" data-modo="add" aria-pressed="false">
-        <b>Acrescentar</b><span>soma à base atual, sem repetir contatos</span>
+        <b>Acrescentar no painel</b><span>combina por completude, sem avaliar a atualidade</span>
       </button>
     </div>
     <label class="drop" id="drop">
@@ -266,6 +271,30 @@
       <p>Os cabeçalhos do Apollo funcionam direto. Também são aceitos nomes em português.</p>
       <div id="aliaslist"></div>
     </details>
+  </div>
+</div>
+<div class="modal" id="bases" aria-hidden="true" role="dialog" aria-label="Bases de contatos salvas">
+  <div class="modal__box db-box">
+    <button class="dr__x" id="basesClose" aria-label="Fechar bases">×</button>
+    <h2 class="modal__t">Suas bases de contatos</h2>
+    <p class="modal__p">Cada importação preserva seus contatos e sua origem. Escolha a base que deseja usar no painel.</p>
+    <form id="dbLogin">
+      <label class="db-field">Endereço do backend<input id="dbApi" type="url" placeholder="https://api.seudominio.com.br" required autocomplete="url"></label>
+      <label class="db-field">Login<input id="dbUsername" required autocomplete="username" minlength="3" maxlength="100"></label>
+      <label class="db-field">Senha<input id="dbPassword" type="password" required autocomplete="current-password" maxlength="200"></label>
+      <button class="btn btn--primary" id="dbConnect" type="submit">Entrar</button>
+    </form>
+    <div id="dbLibrary" hidden>
+      <p id="dbUser" class="modal__p"></p>
+      <div class="db-actions">
+        <button class="btn btn--primary" id="dbNew">Importar nova base</button>
+        <button class="btn" id="dbRefresh">Atualizar lista</button>
+        <button class="btn" id="dbLogout">Sair</button>
+      </div>
+      <div id="dbItems"></div>
+      <button class="btn" id="dbMore" hidden>Ver bases anteriores</button>
+    </div>
+    <p id="dbMessage" role="status" aria-live="polite" class="modal__p"></p>
   </div>
 </div>
 <div class="modal ds" id="dossie" aria-hidden="true" role="dialog" aria-label="Dossiê de abordagem">
