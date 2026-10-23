@@ -63,6 +63,8 @@ A análise de IA do HTML original solicita uma chave da Anthropic e faz a chamad
 
 ## Backend e Netlify
 
+Para executar a partir do Windows, siga o [roteiro completo de PowerShell](docs/powershell.md): pasta local, primeira instalação na VPS, HTTPS, compilação, publicação manual, backup e atualizações.
+
 Consulte [o contrato de bases](docs/bases-e-importacoes.md) e [as instruções de implantação](docs/implantacao.md). O Compose mantém PostgreSQL sem porta pública, API restrita ao loopback, volume e redes próprios. O endereço HTTPS da API e a origem exata do frontend precisam ser configurados para a implantação real. As credenciais e os contatos permanecem fora do Git.
 
 O upload manual no Netlify usa a pasta `dist`, compilada com dados fictícios. Atualizar essa pasta não altera as bases salvas no banco. O workflow também disponibiliza o artefato `leadcaps-netlify-demo` para download depois das verificações.
