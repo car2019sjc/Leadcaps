@@ -4,7 +4,7 @@ Ambiente confirmado em 23/10/2026: frontend `https://leadcaps.synapseia.com.br`,
 
 ## Funcionamento
 
-O instalador cria `compose.override.yaml` somente em `/opt/leadcaps`. O Compose o lê automaticamente junto de `compose.yaml`. O arquivo adiciona um gateway HTTP exclusivo do Leadcaps, usando a imagem oficial `caddy:2-alpine`, sem porta publicada no host. Limites: 96 MiB de memória e 0,20 CPU; logs limitados a dois arquivos de 5 MiB.
+O instalador cria `compose.override.yaml` somente em `/opt/leadcaps`. O Compose o lê automaticamente junto de `compose.yaml`. O arquivo adiciona um gateway HTTP exclusivo do Leadcaps, derivado da imagem oficial `caddy:2-alpine`, sem porta publicada no host. O build remove a file capability do binário, pois a porta 8080 permite execução sem privilégios com `cap_drop: ALL`. Limites: 96 MiB de memória e 0,20 CPU; logs limitados a dois arquivos de 5 MiB.
 
 | Serviço | Redes | Acesso |
 |---|---|---|

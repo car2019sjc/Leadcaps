@@ -170,6 +170,7 @@ def activate(args, backups):
         write_in_place(env_path, new_env)
         after = json.loads(compose("config", "--format", "json", capture=True).stdout)
         assert_isolation(before, after)
+        compose("build", "leadcaps-gateway")
         # Não há migração, build de API nem operação no banco nesta ativação.
         services_started = True
         compose("up", "-d", "--no-deps", "--wait", "--wait-timeout", "150", "api", "leadcaps-gateway")
@@ -191,6 +192,11 @@ def activate(args, backups):
         print(f"Próximo comando: curl --fail --show-error --max-time 20 https://{DOMAIN}/health")
     except BaseException:
         print("Falha na ativação. Tentando restaurar somente os arquivos e serviços envolvidos.", file=sys.stderr)
+        if services_started:
+            try:
+                compose("logs", "--tail", "30", "leadcaps-gateway")
+            except Exception:
+                pass
         try:
             if caddy_written:
                 write_in_place(args.caddy_file, old_caddy)

@@ -2,7 +2,10 @@
 # Copiado pelo instalador para compose.override.yaml na VPS.
 services:
   leadcaps-gateway:
-    image: caddy:2-alpine
+    image: leadcaps-gateway:local
+    build:
+      context: ./deploy
+      dockerfile: Dockerfile.gateway
     user: '1000:1000'
     environment:
       XDG_DATA_HOME: /tmp/caddy/data

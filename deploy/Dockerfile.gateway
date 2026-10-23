@@ -1,0 +1,4 @@
+FROM caddy:2-alpine
+# A porta 8080 dispensa file capabilities; removê-las permite cap_drop: ALL.
+RUN if [ -n "$(getcap /usr/bin/caddy)" ]; then setcap -r /usr/bin/caddy; fi
+USER 1000:1000
