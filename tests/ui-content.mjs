@@ -31,6 +31,7 @@ try {
   await page.waitForFunction(()=>document.getElementById('dbUser').textContent.includes('Editor fictício'));await page.locator('#basesClose').click();
   await page.locator('#btnContent').click();await page.waitForFunction(()=>document.getElementById('ciConfig').textContent.includes('modelo-ficticio-UI'));
   await page.locator('#ciService').fill('Serviços gerenciados de TI');await page.locator('#ciAudience').fill('Gestores de TI de indústrias');await page.locator('#ciGoal').fill('Organizar conversas de diagnóstico');await page.locator('#ciTheme').fill('Recorrência de incidentes');
+  await page.locator('.ds-manual summary').click();
   await page.locator('#ciSource').fill('Pesquisa fictícia <img src=x onerror=alert(1)>');await page.locator('#ciSignals').fill('Como reduzir incidentes recorrentes?\nComo não repetir uma falha?');
   await page.locator('#ciProfile').click();assert.match(await page.locator('#ciProfilePreview').textContent(),/base fictícia/);
   await page.locator('#ciSaveResearch').click();await page.waitForFunction(()=>!document.getElementById('ciResearchResult').hidden);

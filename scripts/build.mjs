@@ -36,9 +36,10 @@ export async function build({ privateData = false, output = resolve(root, 'dist/
   const date = privateData ? localMeta.base_date || meta.base_date : '2026-10-23';
   const apiUrl = process.env.LEADCAPS_API_URL || '';
   if (apiUrl && !/^https?:\/\//.test(apiUrl)) throw new Error('LEADCAPS_API_URL precisa ser uma URL HTTP(S).');
-  app = app.replace("'__BASE_DATE__'", scriptSafeJson(date)).replace("'__APP_BUILD__'", "'2026.10.23-repo.3'").replace("'__API_URL__'", scriptSafeJson(apiUrl));
+  app = app.replace("'__BASE_DATE__'", scriptSafeJson(date)).replace("'__APP_BUILD__'", "'2026.10.23-repo.4'").replace("'__API_URL__'", scriptSafeJson(apiUrl));
   app = (await readFile(resolve(root, 'src/js/database.js'), 'utf8')) + '\n' + app;
   app = (await readFile(resolve(root, 'src/js/content.js'), 'utf8')) + '\n' + app;
+  app = (await readFile(resolve(root, 'src/js/search.js'), 'utf8')) + '\n' + app;
   const entries = {
     CONSOLE_CSS: await readFile(resolve(root, 'src/styles/console.css'), 'utf8'),
     XLSX_EXPORT_JS: await readFile(resolve(root, 'src/js/xlsx-export.js'), 'utf8'),

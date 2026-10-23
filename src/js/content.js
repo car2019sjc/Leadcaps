@@ -21,6 +21,7 @@ const CI = (() => {
     for (const name of ['ciResearchResult','ciOpportunityForm','ciBriefSection','ciClearProfile']) $(name).hidden = true;
     $('ciResearchForm').hidden = false; $('ciProfilePreview').textContent = 'Opcional: somente cargos, setores, estados e contagens.';
     message('');
+    DS.reset();
   }
   function status() {
     $('ciAuth').hidden = DB.connected(); $('ciConnected').hidden = !DB.connected();
@@ -64,9 +65,14 @@ const CI = (() => {
   }
   async function open() {
     $('contentModule').classList.add('on'); $('contentModule').setAttribute('aria-hidden','false'); status();
-    if (DB.connected()) await perform(async current => { await loadConfig(current); await history(false,current); if (research && alive(current)) await loadResearch(research.item.id,current); });
+    if (DB.connected()) await perform(async current => { await loadConfig(current); await history(false,current); await DS.open(); if (research && alive(current)) await loadResearch(research.item.id,current); });
   }
-  function close() { $('contentModule').classList.remove('on'); $('contentModule').setAttribute('aria-hidden','true'); clearTimeout(pollTimer); }
+  function close() { $('contentModule').classList.remove('on'); $('contentModule').setAttribute('aria-hidden','true'); clearTimeout(pollTimer); DS.pause(); }
+  function inputs() {
+    const context={};
+    for(const [key,field] of Object.entries({company:'Company',service:'Service',audience:'Audience',goal:'Goal',market:'Market',language:'Language',proofs:'Proofs',library:'Library'}))context[key]=$('ci'+field).value.trim();
+    return {context,theme:$('ciTheme').value.trim(),profile};
+  }
   function idempotentBody(key, body) {
     const signature = JSON.stringify(body), existing = retryKeys.get(key);
     if (!existing || existing.signature !== signature) retryKeys.set(key, { signature, id:crypto.randomUUID() });
@@ -88,6 +94,7 @@ const CI = (() => {
   async function loadResearch(researchId, current = epoch) {
     const data = await DB.request(`/v1/content/researches/${researchId}`); if (!alive(current)) return;
     clearTimeout(pollTimer); activeJob = null; research = data; selected = brief = version = null;
+    DS.hide();
     $('ciResearchForm').hidden = true; $('ciResearchResult').hidden = false; $('ciOpportunityForm').hidden = true; $('ciBriefSection').hidden = true;
     renderResearch();
     const pending = data.jobs.find(j => ['queued','running'].includes(j.status));
@@ -98,9 +105,11 @@ const CI = (() => {
   function renderResearch() {
     const d = research.item.data;
     $('ciResearchTitle').textContent = d.theme;
-    $('ciResearchSummary').textContent = `${d.context.company} · ${d.context.service} · ${d.context.audience} · ${d.signals.length} expressões fornecidas · ${date(research.item.created_at)} (Brasília). Volume e CPC não consultados.`;
+    $('ciResearchSummary').textContent = `${d.context.company} · ${d.context.service} · ${d.context.audience} · ${d.signals.length} expressões ${d.search_origin?'coletadas e selecionadas':'fornecidas'} · ${date(research.item.created_at)} (Brasília). Volume e CPC indisponíveis.`;
+    $('ciOpenCollection').hidden=!d.search_origin;$('ciOpenCollection').onclick=()=>DS.load(d.search_origin.run_id);
     $('ciEvidence').innerHTML = `<p><b>Objetivo:</b> ${esc(d.context.goal)} · ${esc(d.context.market)} · ${esc(d.context.language)}</p><p><b>Capacidades informadas:</b> ${esc(d.context.proofs || 'Não informadas')}</p><p><b>Biblioteca examinada:</b> ${esc(d.context.library || 'Não informada; lacuna editorial pendente')}</p>${d.profile ? `<p><b>Perfil agregado ${d.profile.kind === 'demo' ? '(base fictícia)' : ''}:</b> ${d.profile.count} contatos · ${esc([...d.profile.roles,...d.profile.sectors,...d.profile.regions].map(x=>x.label+' ('+x.count+')').join(' · '))}</p>` : ''}<ol>${d.signals.map(s=>`<li><b>${esc(s.text)}</b><br><small>${esc(s.source)} · ${esc(s.collected_at)}${s.duplicate_of ? ' · repetição textual preservada' : ''}</small>${s.url ? ` · <a href="${esc(s.url)}" target="_blank" rel="noopener noreferrer">Abrir referência</a>`:''}</li>`).join('')}</ol>${!d.signals.length ? '<p>Ideação sem expressões de pesquisa: demanda não validada.</p>' : '<p>Fontes declaradas pelo usuário, sem verificação automática. Contagens representam somente esta amostra.</p>'}`;
-    $('ciOpportunities').innerHTML = research.opportunities.length ? research.opportunities.map(item => `<article class="ci-opportunity"><span class="ci-kicker">${item.data.hypothesis ? 'Hipótese editorial' : 'Sugestão de IA com expressões fornecidas'} · ${esc({relevant:'Pertinente',review:'Revisão necessária',out_of_context:'Fora de contexto'}[item.data.relevance])}</span><h4>${esc(item.data.title)}</h4><p>${esc(item.data.problem)}</p><p>${esc(item.data.rationale)}</p><p><b>${item.data.priority_score === null ? 'Prioridade incompleta' : `Prioridade sugerida: ${item.data.priority_score}/100`}</b> · ${item.data.evidence_quality.supplied_expressions} expressões · fontes não verificadas</p><button class="btn" data-ci-select="${item.id}">Selecionar e revisar</button></article>`).join('') : '<p class="ci-muted">As oportunidades aparecerão após a geração.</p>';
+    if(d.search_origin)$('ciEvidence').lastElementChild.textContent='Expressões coletadas de Google Autocomplete via SerpAPI. Contagens são desta amostra; volume e CPC não foram medidos. A origem de cada expressão está na coleta vinculada.';
+    $('ciOpportunities').innerHTML = research.opportunities.length ? research.opportunities.map(item => `<article class="ci-opportunity"><span class="ci-kicker">${item.data.hypothesis ? 'Hipótese editorial' : 'Interpretação de IA com expressões referenciadas'} · ${esc({relevant:'Pertinente',review:'Revisão necessária',out_of_context:'Fora de contexto'}[item.data.relevance])}</span><h4>${esc(item.data.title)}</h4><p>${esc(item.data.problem)}</p><p>${esc(item.data.rationale)}</p><p><b>${item.data.priority_score === null ? 'Prioridade incompleta' : `Prioridade sugerida: ${item.data.priority_score}/100`}</b> · ${item.data.evidence_quality.supplied_expressions} expressões · ${item.data.evidence_quality.verification==='collected_from_provider'?'coletadas da fonte; frequência não medida':'fontes declaradas'}</p><button class="btn" data-ci-select="${item.id}">Selecionar e revisar</button></article>`).join('') : '<p class="ci-muted">As oportunidades aparecerão após a geração.</p>';
     $('ciOpportunities').querySelectorAll('[data-ci-select]').forEach(button => { button.onclick = () => selectOpportunity(research.opportunities.find(item=>item.id===button.dataset.ciSelect)); });
     $('ciBriefList').innerHTML = research.briefs.length ? research.briefs.map(item=>`<button class="ci-history-item" data-ci-brief="${item.id}"><strong>${esc(item.title)}</strong><span>Versão ${item.latest_version} · ${item.status === 'approved' ? 'aprovada' : 'rascunho'}</span></button>`).join('') : '<p class="ci-muted">Nenhum briefing nesta pesquisa.</p>';
     $('ciBriefList').querySelectorAll('[data-ci-brief]').forEach(button=>{ button.onclick=()=>perform(n=>loadBrief(button.dataset.ciBrief,n)); });
@@ -113,7 +122,7 @@ const CI = (() => {
     $('ciReviewSignals').innerHTML = research.item.data.signals.length ? research.item.data.signals.map(s=>`<label class="ci-check"><input type="checkbox" data-ci-ref="${esc(s.id)}" ${item.data.evidence_refs.includes(s.id)?'checked':''}>${esc(s.text)} · ${esc(s.source)}</label>`).join('') : '<p>Hipótese sem expressões fornecidas.</p>';
     $('ciScores').innerHTML = Object.entries(labels).map(([key,label])=>`<div class="ci-score"><label>${esc(label)} · ${weights[key]}%<select id="ciScore${key}" aria-label="Nota ${esc(label)}"><option value="">Pendente</option>${[0,1,2,3,4,5].map(n=>`<option value="${n}">${n}</option>`).join('')}</select></label><label>Justificativa<input id="ciReason${key}" required minlength="3" maxlength="500" value="${esc(item.data.scores[key].reason)}"></label></div>`).join('');
     Object.keys(labels).forEach(key=>{ $('ciScore'+key).value=item.data.scores[key].value ?? ''; });
-    $('ciPriority').textContent = `${item.data.priority_score === null ? 'Prioridade incompleta: existem dimensões pendentes.' : `Prioridade: ${item.data.priority_score}/100.`} Revisão ${item.latest_revision} · avaliação ${item.author_type === 'ai' ? 'sugerida pela IA' : 'revisada por usuário'}. Qualidade da evidência: fontes declaradas, sem verificação independente.`;
+    $('ciPriority').textContent = `${item.data.priority_score === null ? 'Prioridade incompleta: existem dimensões pendentes.' : `Prioridade: ${item.data.priority_score}/100.`} Revisão ${item.latest_revision} · avaliação ${item.author_type === 'ai' ? 'sugerida pela IA' : 'revisada por usuário'}. ${research?.item.data.search_origin ? 'Evidência: expressões coletadas do provedor; aderência e intenção são interpretações, sem volume medido.' : 'Qualidade da evidência: fontes declaradas, sem verificação independente.'}`;
     status(); $('ciOpportunityForm').scrollIntoView({behavior:'smooth',block:'start'});
   }
   function opportunityBody() {
@@ -194,7 +203,7 @@ const CI = (() => {
     $('btnContent').onclick=open; $('ciClose').onclick=close;
     $('contentModule').onclick=e=>{ if(e.target.id==='contentModule')close(); };
     $('ciConnect').onclick=()=>{close();DB.open();};
-    $('ciNew').onclick=()=>{clear();status();if(DB.connected())perform(async n=>{await loadConfig(n);await history(false,n);});};
+    $('ciNew').onclick=()=>{clear();status();if(DB.connected())perform(async n=>{await loadConfig(n);await history(false,n);await DS.open();});};
     $('ciMore').onclick=()=>perform(n=>history(true,n));
     $('ciResearchForm').onsubmit=saveResearch;
     $('ciProfile').onclick=()=>{profile=profileFn();$('ciClearProfile').hidden=false;$('ciProfilePreview').textContent=`${profile.count} contatos no filtro${profile.kind==='demo'?' (base fictícia)':''}. Cargos: ${profile.roles.map(x=>x.label+' ('+x.count+')').join(', ')}. Setores: ${profile.sectors.map(x=>x.label+' ('+x.count+')').join(', ')}. Estados: ${profile.regions.map(x=>x.label+' ('+x.count+')').join(', ')}. Somente estes agregados serão incluídos.`;};
@@ -207,6 +216,7 @@ const CI = (() => {
     $('ciReviewed').onchange=status; $('ciApprove').onclick=approve; $('ciExport').onclick=exportBrief;
     $('ciVersion').onchange=()=>showVersion(brief.versions.find(v=>v.version===Number($('ciVersion').value)));
     document.addEventListener('leadcaps:session',()=>{clear();status();});
+    DS.init({inputs,showRun:()=>{research=selected=brief=version=null;clearTimeout(pollTimer);$('ciResearchForm').hidden=true;$('ciResearchResult').hidden=true;$('ciBriefSection').hidden=true;},editorial:researchId=>perform(async n=>{await history(false,n);if(alive(n))await loadResearch(researchId,n);})});
   }
   return { init, open, close };
 })();

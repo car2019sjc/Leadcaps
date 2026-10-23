@@ -1,5 +1,9 @@
 # Desenvolvimento do módulo
 
+## Entrega 0.4: primeiro piloto de descoberta
+
+A [pesquisa automática com SerpAPI](pesquisa-automatica.md) implementa coleta de Google Autocomplete, mapa por regras linguísticas, revisão humana, comparação de amostras e seleção rastreável para o fluxo editorial. Inclui configuração privada pelo PowerShell e atualização isolada da API. O piloto real ainda precisa confirmar a utilidade dos resultados. Métricas, agrupamento semântico, outras fontes e critérios completos do segmento continuam pendentes. As prioridades abaixo registram o plano que motivou essa entrega; não significam que todos os itens já foram concluídos.
+
 A versão 0.3 implementa o fluxo editorial, com entrada manual e geração de hipóteses. Rodrigues relatou a geração de um briefing, mas o piloto confirmou que esse recorte não entrega a pesquisa de temas e dúvidas solicitada a partir do AnswerThePublic. A [correção de escopo e os critérios de aceite](pesquisa-automatica-prioridade.md) passam a orientar a próxima entrega. Instalação e uso da versão existente continuam em [Módulo de conteúdo](modulo-conteudo.md).
 
 ## Prioridade imediata: descoberta com evidências

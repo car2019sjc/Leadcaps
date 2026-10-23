@@ -1,12 +1,12 @@
 <div class="modal ci-modal" id="contentModule" aria-hidden="true" role="dialog" aria-label="Inteligência de conteúdo">
   <div class="ci-shell">
     <header class="ci-header">
-      <div><span class="ci-kicker">Leadcaps · OnSet Tecnologia</span><h2>Inteligência de conteúdo</h2><p>Do contexto e das dúvidas a um briefing revisado.</p></div>
+      <div><span class="ci-kicker">Leadcaps · OnSet Tecnologia</span><h2>Inteligência de conteúdo</h2><p>Pesquise sinais, explore dúvidas e escolha o que merece conteúdo.</p></div>
       <button class="btn" id="ciClose" aria-label="Fechar inteligência de conteúdo">Fechar ×</button>
     </header>
     <div id="ciAuth" class="ci-notice"><p>Entre com seu usuário para consultar pesquisas e salvar briefings.</p><button class="btn btn--primary" id="ciConnect">Conectar banco</button></div>
     <div class="ci-layout" id="ciConnected" hidden>
-      <aside class="ci-history"><button class="btn btn--primary" id="ciNew">Nova pesquisa</button><h3>Pesquisas salvas</h3><div id="ciHistory"></div><button class="btn" id="ciMore" hidden>Ver anteriores</button></aside>
+      <aside class="ci-history"><button class="btn btn--primary" id="ciNew">Nova pesquisa</button><h3>Coletas Google</h3><div id="dsHistory"></div><button class="btn" id="dsMore" hidden>Ver coletas anteriores</button><h3>Seleções editoriais</h3><div id="ciHistory"></div><button class="btn" id="ciMore" hidden>Ver anteriores</button></aside>
       <div class="ci-workspace">
         <p id="ciConfig" class="ci-notice"></p>
         <p id="ciMessage" role="status" aria-live="polite"></p>
@@ -28,8 +28,20 @@
           </details>
           <div class="db-actions"><button type="button" class="btn" id="ciProfile">Usar perfil agregado do filtro atual</button><button type="button" class="btn" id="ciClearProfile" hidden>Remover perfil</button></div>
           <p id="ciProfilePreview" class="ci-muted">Opcional: cargos, setores, estados e contagens. Nomes, empresas e e-mails dos contatos não entram no módulo.</p>
-          <h3>2. Resultados da pesquisa</h3>
-          <p class="ci-muted">Cole expressões de uma pesquisa que você realizou. Esta versão não consulta buscadores automaticamente. Fonte e data são declarações suas, preservadas no histórico.</p>
+          <h3>2. Pesquisar dúvidas e expressões</h3>
+          <p id="dsConfig" class="ci-notice"></p>
+          <div class="ci-grid">
+            <label class="db-field">Termo inicial curto<input id="dsSeed" maxlength="100" placeholder="Ex.: service desk ou suporte de TI"></label>
+            <label class="db-field">País da coleta<select id="dsCountry"><option value="br">Brasil</option><option value="pt">Portugal</option><option value="us">Estados Unidos</option><option value="es">Espanha</option><option value="mx">México</option></select></label>
+            <label class="db-field">Idioma da coleta<select id="dsLanguage"><option value="pt">Português</option><option value="en">Inglês</option><option value="es">Espanhol</option></select></label>
+          </div>
+          <button type="button" class="btn" id="dsPlan">Preparar consultas</button>
+          <label class="db-field">Plano de coleta — até 8 consultas, uma por linha<textarea id="dsQueries" rows="4" maxlength="1600" placeholder="Prepare e revise as consultas antes de pesquisar."></textarea></label>
+          <label class="db-field">Termos a separar como fora de contexto — opcionais, um por linha<textarea id="dsExclusions" rows="2" maxlength="1300" placeholder="Ex.: vagas, se conteúdo de carreira estiver fora do objetivo."></textarea></label>
+          <p class="ci-muted">Cada linha pode consumir uma consulta da SerpAPI. O plano inicial é uma sugestão de consultas; os resultados só existirão após a coleta. Volume e CPC não são fornecidos nesta versão.</p>
+          <button type="button" class="btn btn--primary" id="dsRun" disabled>Pesquisar no Google via SerpAPI</button>
+          <details class="ds-manual"><summary>Alternativa: resultados manuais ou hipótese editorial</summary>
+          <p class="ci-muted">Cole expressões de uma pesquisa que você realizou. Fonte e data são declarações suas, preservadas no histórico.</p>
           <div class="ci-grid">
             <label class="db-field">Fonte dos resultados<input id="ciSource" placeholder="Ex.: AnswerThePublic — relatório salvo" maxlength="150"></label>
             <label class="db-field">Data da coleta<input id="ciDate" type="date"></label>
@@ -38,10 +50,33 @@
           <label class="db-field">Dúvidas ou expressões, uma por linha<textarea id="ciSignals" rows="5" placeholder="Cole aqui os resultados da pesquisa. Não cole contatos ou instruções internas." maxlength="25000"></textarea></label>
           <label class="ci-check"><input type="checkbox" id="ciHypothesis"> Trabalhar como hipótese editorial se eu não fornecer resultados de pesquisa. As ideias da IA não comprovarão demanda.</label>
           <button class="btn btn--primary" type="submit" id="ciSaveResearch">Salvar pesquisa</button>
+          </details>
         </form>
+        <p id="dsMessage" role="status" aria-live="polite"></p>
+        <section id="dsPanel" hidden>
+          <div class="ci-section-head"><h3 id="dsTitle"></h3><button type="button" class="btn" id="dsRefresh">Atualizar coleta</button></div>
+          <p id="dsSummary" class="ci-notice"></p><p id="dsProgress" role="status"></p>
+          <details><summary>Consultas, estados e rastreabilidade</summary><ol id="dsQueriesResult"></ol></details>
+          <h3>Mapa de dúvidas e expressões</h3>
+          <p class="ci-muted">Sugestões observadas em Google Autocomplete. Agrupamento inicial por regras linguísticas, com revisão humana. Quantidade de expressões não representa volume de procura.</p>
+          <div id="dsMap" class="ds-map"></div>
+          <div class="ci-grid ds-filters">
+            <label class="db-field">Filtrar expressão<input id="dsTextFilter" maxlength="100"></label>
+            <label class="db-field">Grupo<select id="dsGroupFilter"><option value="">Todos os grupos</option></select></label>
+            <label class="db-field">Revisão<select id="dsDisposition"><option value="all">Todos os estados</option><option value="review">Revisar</option><option value="keep">Manter</option><option value="excluded">Excluídas</option></select></label>
+          </div>
+          <p id="dsVisible" class="ci-muted"></p>
+          <div class="db-actions"><button type="button" class="btn" id="dsSelectVisible">Selecionar este filtro</button><button type="button" class="btn" id="dsClearSelection">Limpar seleção</button></div>
+          <p id="dsCount" class="ci-notice"></p><button type="button" class="btn btn--primary" id="dsExport">Levar selecionadas para oportunidades</button>
+          <section id="dsEditor" hidden class="ds-editor"><h4 id="dsEditTitle"></h4><label class="db-field">Grupo — edite para unir ou separar temas<input id="dsEditGroup" maxlength="80"></label><label class="db-field">Pertinência<select id="dsEditState"><option value="review">Revisar</option><option value="keep">Manter</option><option value="excluded">Excluir do contexto</option></select></label><label class="db-field">Justificativa<textarea id="dsEditReason" maxlength="500"></textarea></label><div class="db-actions"><button type="button" class="btn btn--primary" id="dsSaveReview">Salvar revisão da expressão</button><button type="button" class="btn" id="dsCancelReview">Fechar revisão</button></div></section>
+          <div id="dsRows" class="ds-rows"></div>
+          <div class="db-actions"><button type="button" class="btn" id="dsCompare">Comparar com coleta anterior</button></div><div id="dsComparison" class="ds-comparison"></div>
+          <h4>Seleções editoriais desta coleta</h4><div id="dsExports"></div>
+        </section>
         <section id="ciResearchResult" hidden>
           <div class="ci-section-head"><h3 id="ciResearchTitle"></h3><button class="btn" id="ciRefresh">Atualizar pesquisa</button></div>
           <p id="ciResearchSummary" class="ci-muted"></p>
+          <button type="button" class="btn" id="ciOpenCollection" hidden>Explorar coleta Google de origem</button>
           <details><summary>Contexto, expressões e rastreabilidade</summary><div id="ciEvidence"></div></details>
           <div class="db-actions"><button class="btn btn--primary" id="ciAnalyze">Sugerir oportunidades com IA</button></div>
           <p class="ci-muted">A geração utiliza sua API Anthropic e pode consumir créditos. A fonte dos resultados e a qualidade da evidência aparecem separadas da prioridade.</p>

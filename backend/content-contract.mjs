@@ -30,7 +30,7 @@ export function validateResearch(input) {
   const seen = new Map();
   const signals = input.signals.map((raw, i) => {
     object(raw, ['text', 'source', 'url', 'collected_at']);
-    const original = text(raw.text, 'Expressão', 3, 300);
+    const original = text(raw.text, 'Expressão', 1, 300);
     const key = original.normalize('NFKC').toLocaleLowerCase('pt-BR').replace(/\s+/g, ' ');
     const date = text(raw.collected_at, 'Data da coleta', 10, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(Date.parse(date)) || new Date(date).toISOString().slice(0, 10) !== date || Date.parse(date) > Date.now() + 86400000) throw new HttpError(400, 'Data da coleta inválida.');
@@ -89,7 +89,8 @@ export function validateOpportunity(raw, research, { ai = false } = {}) {
   if (ai && !research.context.library) scores.gap = { value: null, reason: 'Biblioteca de conteúdos não examinada.' };
   Object.assign(data, evaluate(scores));
   data.hypothesis = data.evidence_refs.length === 0;
-  data.evidence_quality = { supplied_expressions: data.evidence_refs.length, sources_declared: new Set(research.signals.filter(s => data.evidence_refs.includes(s.id)).map(s => s.source + '|' + s.url)).size, verification: 'not_independently_verified', measured_demand: false };
+  const evidence=research.signals.filter(s=>data.evidence_refs.includes(s.id));
+  data.evidence_quality = { supplied_expressions: data.evidence_refs.length, collected_expressions:evidence.filter(s=>s.kind==='collected_autocomplete').length, sources_declared: new Set(evidence.map(s => s.source + '|' + s.url)).size, verification: evidence.length&&evidence.every(s=>s.kind==='collected_autocomplete')?'collected_from_provider':'not_independently_verified', measured_demand: false };
   return data;
 }
 export const BRIEF_TEXT = ['title', 'audience', 'objective', 'promise', 'format', 'angle', 'conversion_material', 'cta', 'editorial_notes'];
@@ -116,6 +117,7 @@ export const BRIEF_SCHEMA = obj(Object.fromEntries([...BRIEF_TEXT.map(k => [k, s
 export function briefMarkdown(brief, version, research, opportunity) {
   const d = version.data;
   const sections = [['Público', d.audience], ['Objetivo', d.objective], ['Promessa editorial', d.promise], ['Formato', d.format], ['Abordagem', d.angle], ['Perguntas', d.questions.map(x => '- ' + x).join('\n')], ['Estrutura', d.outline.map((x,i) => `${i+1}. ${x}`).join('\n')], ['Material de conversão', d.conversion_material], ['Próxima ação', d.cta], ['Validações pendentes', d.validation_tasks.length ? d.validation_tasks.map(x => '- ' + x).join('\n') : 'Nenhuma tarefa registrada; referências ainda exigem conferência editorial.'], ['Orientações editoriais', d.editorial_notes]];
-  const sources = research.signals.filter(s => d.evidence_refs.includes(s.id)).map(s => `- ${s.id}: ${s.text}\n  Fonte informada: ${s.source}; coleta declarada: ${s.collected_at}${s.url ? '; ' + s.url : ''}`).join('\n');
-  return `# ${d.title}\n\nBriefing editorial aprovado — versão ${version.version}\nEmpresa: ${research.context.company}\nServiço: ${research.context.service}\nTema: ${research.theme}\nBriefing: ${brief.id}\nOportunidade: ${brief.opportunity_id} — revisão ${brief.opportunity_revision}\nAprovado em: ${new Date(version.approved_at).toISOString()}\n\n${opportunity.hypothesis ? 'Hipótese editorial: demanda não validada.\n\n' : 'As expressões fornecidas não comprovam frequência de busca ou demanda de mercado.\n\n'}${sections.map(([title, value]) => `## ${title}\n\n${value}`).join('\n\n')}\n\n## Rastreabilidade\n\n${sources || 'Ideação gerada por IA, sem resultados de pesquisa fornecidos.'}\n\nConteúdo preparado com apoio da Anthropic. Fontes fornecidas pelo usuário, sem verificação automática. Este briefing orienta a produção; não é uma peça aprovada para campanha.\n`;
+  const sources = research.signals.filter(s => d.evidence_refs.includes(s.id)).map(s => `- ${s.id}: ${s.text}\n  Fonte: ${s.source}; coleta: ${s.collection?.collected_at||s.collected_at}${s.url ? '; ' + s.url : ''}${s.collection?'; execução: '+s.collection.run_id+'; consultas: '+s.collection.query_ids.join(', '):''}`).join('\n');
+  const originNote=research.search_origin?'Expressões coletadas de Google Autocomplete via SerpAPI; não representam frequência medida de busca.':'Fontes fornecidas pelo usuário, sem verificação automática.';
+  return `# ${d.title}\n\nBriefing editorial aprovado — versão ${version.version}\nEmpresa: ${research.context.company}\nServiço: ${research.context.service}\nTema: ${research.theme}\nBriefing: ${brief.id}\nOportunidade: ${brief.opportunity_id} — revisão ${brief.opportunity_revision}\nAprovado em: ${new Date(version.approved_at).toISOString()}\n\n${opportunity.hypothesis ? 'Hipótese editorial: demanda não validada.\n\n' : 'As expressões não comprovam frequência de busca ou demanda de mercado.\n\n'}${sections.map(([title, value]) => `## ${title}\n\n${value}`).join('\n\n')}\n\n## Rastreabilidade\n\n${sources || 'Ideação gerada por IA, sem resultados de pesquisa fornecidos.'}\n\nConteúdo preparado com apoio da Anthropic. ${originNote} Este briefing orienta a produção; não é uma peça aprovada para campanha.\n`;
 }

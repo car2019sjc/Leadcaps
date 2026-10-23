@@ -4,9 +4,9 @@ Projeto específico da OnSet Tecnologia para prospecção e desenvolvimento do m
 
 ## Estado atual
 
-A versão inicial organiza o HTML entregue por Rodrigues em fontes separadas, preservando o comportamento do console. A versão 0.3 implementa o primeiro fluxo de inteligência de conteúdo com Anthropic no servidor: contexto, resultados de pesquisa fornecidos, oportunidades revisáveis, briefing, versões, aprovação e exportação Markdown. Consulte o [roteiro do módulo](docs/modulo-conteudo.md) para instalar e usar.
+A versão 0.4 acrescenta pesquisa automática de Google Autocomplete via SerpAPI: plano editável, coleta persistida, mapa de expressões, filtros, revisão de grupos e pertinência, comparação de amostras e seleção vinculada às oportunidades e briefings. Siga o [roteiro de instalação e uso pelo PowerShell](docs/pesquisa-automatica.md). A chave fica somente na VPS; há uma janela Windows com botão **Colar chave**.
 
-**Limite confirmado no piloto:** a coleta é manual; o produto ainda não pesquisa automaticamente como a referência AnswerThePublic. Rodrigues relatou a geração de um briefing, mas esse resultado não valida o objetivo de descoberta. A próxima prioridade é [coleta automática, mapa de dúvidas e oportunidades sustentadas por evidências](docs/pesquisa-automatica-prioridade.md), antes de ampliar a redação de conteúdo.
+O fluxo editorial 0.3 continua disponível: contexto, expressões manuais ou hipóteses, oportunidades revisáveis, briefing, versões, aprovação e exportação Markdown, com Anthropic no servidor. O piloto de pesquisa 0.4 responde à [correção de escopo](docs/pesquisa-automatica-prioridade.md), mas ainda exige validação de resultados reais. Agrupamento inicial usa regras revisáveis, não clusters semânticos validados. Não há volume/CPC, múltiplos canais, artigos ou publicação automática.
 
 A versão 0.2 acrescenta o backend de bases: login, descrição obrigatória, data/hora do servidor, autoria e contatos preservados por importação. **Bases salvas** permite escolher qual pesquisa carregar, sem substituir ou combinar automaticamente cargas anteriores. A API de bases foi validada por HTTPS no ambiente informado. Novas instalações da versão 0.3 exigem a atualização da API e a publicação manual do frontend conforme o roteiro.
 
@@ -75,6 +75,6 @@ Sem `TEST_DATABASE_URL`, o teste de integração de banco é indicado como ignor
 
 ## Próxima etapa
 
-Implementar e validar a pesquisa automática descrita na [correção de escopo](docs/pesquisa-automatica-prioridade.md): fonte de dados, coleta, exploração de grupos, evidências e métricas, conectadas ao fluxo editorial existente. O acesso à fonte e o orçamento do piloto ainda precisam ser confirmados. O contexto editorial e o score de contatos são objetos diferentes: prioridade de conteúdo não qualifica uma pessoa automaticamente.
+Instalar a versão 0.4 e validar descoberta e pertinência com temas reais, antes de ampliar redação. Métricas, agrupamento semântico, outros canais e o snapshot completo dos filtros são etapas posteriores. O contexto editorial e o score de contatos são objetos diferentes: prioridade de conteúdo não qualifica uma pessoa automaticamente.
 
 Os pesos e as regras do módulo são propostas próprias. A implementação não usa código nem algoritmo proprietário do AnswerThePublic.

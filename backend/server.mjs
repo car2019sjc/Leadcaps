@@ -6,6 +6,7 @@ import { createPool, migrate } from './db.mjs';
 import { newToken, tokenHash, passwordHash, passwordMatches } from './auth.mjs';
 import { HttpError, text, validateImport } from './validation.mjs';
 import { createContentService } from './content-service.mjs';
+import { createSearchService } from './search-service.mjs';
 
 const MAX_BODY = 10 * 1024 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -24,11 +25,12 @@ async function readJson(req) {
   catch { throw new HttpError(400, 'JSON inválido.'); }
 }
 
-export async function createApi({ pool, origins, contentProvider, contentDailyLimit = Number(process.env.CONTENT_DAILY_LIMIT || 20) }) {
+export async function createApi({ pool, origins, contentProvider, contentDailyLimit = Number(process.env.CONTENT_DAILY_LIMIT || 20), searchProvider, searchMonthlyLimit = Number(process.env.SEARCH_MONTHLY_LIMIT || 200), searchHourlyLimit = Number(process.env.SEARCH_HOURLY_LIMIT || 40) }) {
   if (!origins?.length) throw new Error('Configure ALLOWED_ORIGINS com o endereço exato do frontend.');
   const dummyHash = await passwordHash(randomUUID());
   const attempts = new Map();
   const content = createContentService({ pool, provider: contentProvider, dailyLimit: contentDailyLimit });
+  const discovery = createSearchService({pool,provider:searchProvider,monthlyLimit:searchMonthlyLimit,hourlyLimit:searchHourlyLimit});
   const server = createServer(async (req, res) => {
     const requestId = randomUUID();
     const send = (status, value) => {
@@ -85,6 +87,7 @@ export async function createApi({ pool, origins, contentProvider, contentDailyLi
         return send(204);
       }
       if (await content.handle(req, url, user, readJson, send)) return;
+      if (await discovery.handle(req, url, user, readJson, send)) return;
       if (req.method === 'GET' && url.pathname === '/v1/imports') {
         const offset = Number(url.searchParams.get('offset') || 0);
         if (!Number.isSafeInteger(offset) || offset < 0 || offset > 1000000) throw new HttpError(400, 'Página inválida.');
@@ -118,6 +121,7 @@ export async function createApi({ pool, origins, contentProvider, contentDailyLi
     }
   });
   server.content = content;
+  server.discovery = discovery;
   return server;
 }
 
@@ -127,9 +131,10 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   const origins = (process.env.ALLOWED_ORIGINS || '').split(',').map(x => x.trim()).filter(Boolean);
   const server = await createApi({ pool, origins });
   server.content.start();
+  server.discovery.start();
   server.requestTimeout = 60000;
   server.headersTimeout = 15000;
   server.listen(Number(process.env.PORT || 8080), '0.0.0.0', () => console.log('Leadcaps API iniciada.'));
-  const close = () => server.close(async () => { await server.content.stop(); await pool.end(); process.exit(0); });
+  const close = () => server.close(async () => { await Promise.all([server.content.stop(),server.discovery.stop()]); await pool.end(); process.exit(0); });
   process.on('SIGTERM', close); process.on('SIGINT', close);
 }

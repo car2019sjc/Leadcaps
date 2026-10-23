@@ -111,12 +111,16 @@ def save_configuration(env_path, original, key, workspace, model):
     values = {'ANTHROPIC_API_KEY': key, 'ANTHROPIC_MODEL': model, 'ANTHROPIC_WORKSPACE_ID': workspace}
     if not re.search(r'^CONTENT_DAILY_LIMIT=', original.decode(), re.M):
         values['CONTENT_DAILY_LIMIT'] = '20'
+    return write_private_values(env_path, original, values, 'anthropic')
+
+
+def write_private_values(env_path, original, values, prefix):
     updated = replace_values(original.decode(), values)
     os.umask(0o077)
     backups = env_path.parent / 'backups'
     backups.mkdir(mode=0o700, exist_ok=True)
     os.chmod(backups, 0o700)
-    backup = Path(tempfile.mkdtemp(prefix='anthropic-' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-', dir=backups))
+    backup = Path(tempfile.mkdtemp(prefix=prefix + '-' + datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-', dir=backups))
     shutil.copy2(env_path, backup / 'env.before')
     if env_path.read_bytes() != original:
         raise ConfigurationError('O .env mudou durante a configuração. Nenhuma substituição foi feita.')

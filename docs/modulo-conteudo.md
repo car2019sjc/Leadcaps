@@ -1,5 +1,7 @@
 # Inteligência de conteúdo — primeira versão 0.3
 
+> O fluxo editorial abaixo permanece disponível. A versão 0.4 acrescenta pesquisa automática de Google Autocomplete, mapa revisável e seleção vinculada ao briefing: siga [Pesquisa automática](pesquisa-automatica.md) para instalar e usar essa etapa. Limitações de coleta manual descritas aqui se referem ao modo editorial original.
+
 ## Estado e escopo
 
 Implementação própria no Leadcaps, com a mesma autenticação e PostgreSQL. O frontend continua sendo um HTML compilado e publicado manualmente no Netlify. O backend de bases já foi disponibilizado em HTTPS; esta versão editorial precisa ser instalada na VPS e publicada no Netlify pelos comandos abaixo.

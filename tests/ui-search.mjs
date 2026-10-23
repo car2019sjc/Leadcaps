@@ -1,0 +1,46 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import pg from 'pg';
+import {randomUUID} from 'node:crypto';
+import {spawn} from 'node:child_process';
+import {once} from 'node:events';
+import {mkdir} from 'node:fs/promises';
+import {createApi} from '../backend/server.mjs';
+import {migrate} from '../backend/db.mjs';
+import {passwordHash} from '../backend/auth.mjs';
+import {opportunityFixture,briefFixture} from './content-fixtures.mjs';
+import {fakeSearchProvider} from './search-fixtures.mjs';
+if(!process.env.TEST_DATABASE_URL){console.log('UI de pesquisa ignorada: configure TEST_DATABASE_URL de testes.');process.exit(0);}
+const admin=new pg.Pool({connectionString:process.env.TEST_DATABASE_URL}),schema='ui_search_'+randomUUID().replaceAll('-','');await admin.query(`CREATE SCHEMA ${schema}`);
+const pool=new pg.Pool({connectionString:process.env.TEST_DATABASE_URL,options:`-c search_path=${schema}`,max:4});let browser,api,web,collected=0,generated=0;
+try {
+  await mkdir('test-results',{recursive:true});await migrate(pool);
+  await pool.query('INSERT INTO app_users(id,login,display_name,password_hash) VALUES($1,$2,$3,$4)',[randomUUID(),'pesquisa','Pesquisador fictício',await passwordHash('senha-ficticia-1234')]);
+  api=await createApi({pool,origins:['http://127.0.0.1:8015'],searchProvider:fakeSearchProvider(()=>collected++),contentProvider:{enabled:true,model:'modelo-ficticio-UI',maxTokens:4096,generate:async(action,input)=>{generated++;return{data:action==='opportunities'?{opportunities:[opportunityFixture(input.research)]}:briefFixture(input),usage:{input_tokens:100,output_tokens:200}};}}});
+  await new Promise(resolve=>api.listen(8329,'127.0.0.1',resolve));api.content.start();api.discovery.start();
+  web=spawn(process.execPath,['scripts/serve.mjs','--port=8015'],{stdio:['ignore','pipe','inherit']});await once(web.stdout,'data');
+  browser=await chromium.launch({headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.route('**/fonts.googleapis.com/**',r=>r.abort());await page.route('**/fonts.gstatic.com/**',r=>r.abort());await page.goto('http://127.0.0.1:8015',{waitUntil:'domcontentloaded'});
+  await page.locator('#btnBases').click();await page.locator('#dbApi').fill('http://127.0.0.1:8329');await page.locator('#dbUsername').fill('pesquisa');await page.locator('#dbPassword').fill('senha-ficticia-1234');await page.locator('#dbConnect').click();await page.waitForFunction(()=>document.getElementById('dbUser').textContent.includes('Pesquisador fictício'));await page.locator('#basesClose').click();
+  await page.locator('#btnContent').click();await page.waitForFunction(()=>document.getElementById('dsConfig').textContent.includes('Google Autocomplete'));
+  await page.locator('#ciService').fill('Serviços gerenciados de TI');await page.locator('#ciAudience').fill('Gestores de TI');await page.locator('#ciGoal').fill('Gerar conversas de diagnóstico');await page.locator('#ciTheme').fill('Recorrência de incidentes');await page.locator('#dsSeed').fill('service desk');await page.locator('#dsPlan').click();
+  await page.locator('#dsQueries').fill('service desk\nservice desk preço\nservice desk vagas');await page.locator('#dsExclusions').fill('vagas');assert.equal(collected,0);assert.equal(generated,0);
+  await page.locator('#dsRun').click();await page.waitForFunction(()=>document.getElementById('dsSummary').textContent.includes('Concluída'));
+  assert.equal(collected,3);assert.equal(generated,0,'Coletar não deve chamar a Anthropic');assert.match(await page.locator('#dsSummary').textContent(),/4 expressões distintas · 5 ocorrências/);
+  assert.equal(await page.locator('.ds-group').count()>=3,true);await page.locator('#dsDisposition').selectOption('excluded');assert.equal(await page.locator('.ds-signal').count(),1);assert.match(await page.locator('#dsRows').textContent(),/vagas/);
+  await page.locator('#dsDisposition').selectOption('all');await page.locator('#dsTextFilter').fill('Como reduzir');assert.equal(await page.locator('.ds-signal').count(),1);
+  await page.locator('[data-ds-edit]').click();await page.locator('#dsEditGroup').fill('Reduzir recorrência');await page.locator('#dsEditState').selectOption('keep');await page.locator('#dsEditReason').fill('Pergunta pertinente ao serviço oferecido.');await page.locator('#dsSaveReview').click();await page.waitForFunction(()=>document.getElementById('dsSummary').textContent.includes('revisão 2'));
+  await page.locator('#dsSelectVisible').click();assert.match(await page.locator('#dsCount').textContent(),/^1 expressões/);
+  await page.locator('#dsTextFilter').fill('');await page.locator('#dsRows').scrollIntoViewIfNeeded();await page.screenshot({path:'test-results/pesquisa-mapa-desktop.png'});
+  await page.locator('#ciClose').click();await page.locator('#btnContent').click();await page.waitForFunction(()=>!document.getElementById('dsPanel').hidden);assert.equal(collected,3,'Reabrir não pode repetir a coleta');
+  await page.setViewportSize({width:390,height:844});await page.locator('#dsMap').scrollIntoViewIfNeeded();const bounds=await page.locator('.ci-shell').boundingBox();assert.ok(bounds.x>=0&&bounds.x+bounds.width<=391);await page.screenshot({path:'test-results/pesquisa-mapa-mobile.png'});await page.setViewportSize({width:1440,height:1100});
+  await page.locator('#dsExport').click();await page.waitForFunction(()=>!document.getElementById('ciResearchResult').hidden);assert.match(await page.locator('#ciResearchSummary').textContent(),/1 expressões coletadas e selecionadas/);assert.equal(generated,0);
+  await page.locator('#ciAnalyze').click();await page.waitForFunction(()=>document.querySelectorAll('.ci-opportunity').length===1);await page.locator('[data-ci-select]').click();await page.locator('#ciGenerateBrief').click();await page.waitForFunction(()=>!document.getElementById('ciBriefSection').hidden);assert.equal(generated,2);
+  await page.locator('#ciReviewed').check();await page.locator('#ciApprove').click();await page.waitForFunction(()=>document.getElementById('ciBriefStatus').textContent.includes('aprovada por'));
+  const downloadPromise=page.waitForEvent('download');await page.locator('#ciExport').click();const download=await downloadPromise;assert.match(download.suggestedFilename(),/v1\.md$/);
+  const dbSnapshot=(await pool.query("SELECT data FROM content_researches WHERE data->>'schema_version'='content.research.v2'")).rows[0].data;assert.equal(dbSnapshot.signals[0].kind,'collected_autocomplete');assert.ok(dbSnapshot.search_origin.run_id);
+  await page.locator('#ciClose').click();await page.locator('#btnBases').click();await page.locator('#dbLogout').click();await page.waitForFunction(()=>document.getElementById('dbLogin').hidden===false);assert.equal(await page.locator('#dsRows').textContent(),'');assert.equal(errors.length,0,errors.join('\n'));
+  console.log('UI: coleta simulada, mapa, filtro, revisão, retomada, seleção, oportunidade, briefing e aprovação com PostgreSQL real — OK. Nenhuma chamada paga.');
+}finally{
+  if(browser)await browser.close();if(web)web.kill();if(api){await Promise.all([api.content.stop(),api.discovery.stop()]);await new Promise(resolve=>{api.close(resolve);api.closeAllConnections();});}await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();
+}

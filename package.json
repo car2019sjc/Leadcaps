@@ -1,6 +1,6 @@
 {
   "name": "leadcaps",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "Console de prospecção da OnSet e base para inteligência de conteúdo",
   "type": "module",
@@ -15,7 +15,7 @@
     "start": "node scripts/serve.mjs",
     "check": "node scripts/check.mjs",
     "test": "node --test tests/*.test.mjs",
-    "test:ui": "node tests/ui-bases.mjs && node tests/ui-content.mjs",
+    "test:ui": "node tests/ui-bases.mjs && node tests/ui-content.mjs && node tests/ui-search.mjs",
     "api": "node backend/server.mjs",
     "db:migrate": "node backend/db.mjs",
     "validate": "npm run check && npm test && npm run build"

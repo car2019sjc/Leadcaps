@@ -1,5 +1,7 @@
 # Leadcaps — execução e atualização pelo PowerShell
 
+Para a versão 0.4, siga [Pesquisa automática](pesquisa-automatica.md): configuração da SerpAPI com botão de colagem, atualização isolada na VPS e publicação manual do novo `dist`.
+
 Para instalar a inteligência editorial 0.3 com sua API Anthropic, siga [o roteiro específico](modulo-conteudo.md): configuração oculta da chave na VPS, backup, atualização da API e compilação do frontend para deploy manual.
 
 Se não conseguir colar a chave no terminal, esse roteiro também oferece `deploy/configure-anthropic-windows.ps1`: uma janela do Windows com botão **Colar chave**, envio por SSH e aplicação somente na API do Leadcaps.

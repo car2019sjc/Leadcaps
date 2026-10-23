@@ -1,0 +1,4 @@
+import {randomUUID} from 'node:crypto';
+import {researchInput} from './content-fixtures.mjs';
+export function searchInput(){const input=researchInput();return {request_id:randomUUID(),context:input.context,theme:input.theme,profile:null,seed:'service desk',country:'br',language:'pt',queries:['service desk','service desk preço','service desk vagas'],exclusions:['vagas']};}
+export const fakeSearchProvider=(onCall=()=>{})=>({enabled:true,name:'SerpAPI',async autocomplete(query){onCall(query);if(query==='fail')throw Object.assign(new Error('sensitive detail'),{code:'search_http_429'});return{items:query.endsWith('vagas')?[]:query.includes('preço')?[{text:'COMO  reduzir chamados?'},{text:'service desk preço'}]:[{text:'Como reduzir chamados?'},{text:'service desk ou help desk'},{text:'service desk vagas'}],provider_id:'fictitious-provider-id',provider_created_at:'2026-10-23T12:00:00Z'};}});

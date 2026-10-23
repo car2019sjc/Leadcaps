@@ -4,6 +4,7 @@ import importlib.util
 import io
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -15,9 +16,57 @@ spec.loader.exec_module(deploy)
 config_spec = importlib.util.spec_from_file_location("configure_anthropic", Path(__file__).resolve().parents[1] / "deploy/configure_anthropic.py")
 config = importlib.util.module_from_spec(config_spec)
 config_spec.loader.exec_module(config)
+serp_spec = importlib.util.spec_from_file_location('configure_serpapi', Path(__file__).resolve().parents[1] / 'deploy/configure_serpapi.py')
+serp = importlib.util.module_from_spec(serp_spec)
+with mock.patch.dict(sys.modules, {'configure_anthropic': config}):
+    serp_spec.loader.exec_module(serp)
 
 
 class DeploymentGuards(unittest.TestCase):
+    def test_serpapi_private_payload_rejects_extra_fields_and_invalid_keys(self):
+        key = 'fictitious-serpapi-key-1234567890'
+        self.assertEqual(serp.read_key(io.StringIO(json.dumps({'key': key}))), key)
+        for value in ({'key': key, 'model': 'unexpected'}, {'key': 123}, {'key': 'short'}, [], {'key': 'a' * 201}):
+            with self.subTest(value=value):
+                with self.assertRaises(config.ConfigurationError):
+                    serp.read_key(io.StringIO(json.dumps(value)))
+
+    def test_serpapi_configuration_preserves_existing_secrets_without_logging(self):
+        key = 'fictitious-serpapi-key-1234567890'
+        original = b'POSTGRES_PASSWORD=fictitious-db-secret\nANTHROPIC_API_KEY=fictitious-anthropic-secret\nAPI_PORT=8310\n'
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            path = root / '.env'
+            path.write_bytes(original)
+            output = io.StringIO()
+            with mock.patch.object(serp, 'ROOT', root), mock.patch.object(serp.os, 'geteuid', return_value=0), \
+                 mock.patch.object(serp.sys, 'stdin', io.StringIO(json.dumps({'key': key}))), \
+                 mock.patch.object(serp, 'check_account', return_value=250) as account, contextlib.redirect_stdout(output):
+                serp.main()
+            account.assert_called_once_with(key)
+            self.assertTrue(path.read_bytes().startswith(original))
+            self.assertIn('SERPAPI_API_KEY=' + key + '\n', path.read_text())
+            self.assertIn('SEARCH_MONTHLY_LIMIT=200\n', path.read_text())
+            self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+            backups = list((root / 'backups').glob('*/env.before'))
+            self.assertEqual(len(backups), 1)
+            self.assertEqual(backups[0].read_bytes(), original)
+            for secret in (key, 'fictitious-db-secret', 'fictitious-anthropic-secret'):
+                self.assertNotIn(secret, output.getvalue())
+
+    def test_serpapi_account_failure_preserves_configuration(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            original = b'POSTGRES_PASSWORD=fictitious-password\n'
+            (root / '.env').write_bytes(original)
+            with mock.patch.object(serp, 'ROOT', root), mock.patch.object(serp.os, 'geteuid', return_value=0), \
+                 mock.patch.object(serp.sys, 'stdin', io.StringIO(json.dumps({'key': 'fictitious-serpapi-key-1234567890'}))), \
+                 mock.patch.object(serp, 'check_account', side_effect=config.ConfigurationError('Conta inválida')):
+                with self.assertRaises(config.ConfigurationError):
+                    serp.main()
+            self.assertEqual((root / '.env').read_bytes(), original)
+            self.assertFalse((root / 'backups').exists())
+
     def test_private_payload_validates_credentials_and_rejects_unexpected_input(self):
         valid = {"key": "fictitious-windows-key-1234567890", "model": "claude-test", "workspace": ""}
         self.assertEqual(config.read_private_payload(io.StringIO(json.dumps(valid))), (valid['key'], '', 'claude-test'))
