@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { runInNewContext, Script } from 'node:vm';
 import { build, root, loadDemoPack, validatePack, scriptSafeJson } from '../scripts/build.mjs';
+import { extractPack } from '../scripts/import-html.mjs';
 
 async function importer() {
   return runInNewContext((await readFile(resolve(root, 'src/js/ingest.js'), 'utf8')) + '\nING;', { TextDecoder, Uint8Array, Blob });
@@ -107,4 +108,12 @@ test('exportação Excel gera pacote XLSX nativo com planilha e strings', async 
 
 test('validação rejeita base com colunas de comprimentos diferentes', () => {
   assert.throws(() => validatePack({ dic: {}, cols: { n: ['demo'], t: [] } }), /Comprimento inválido/);
+});
+
+test('extração do HTML preserva delimitadores dentro de strings e não executa scripts', async () => {
+  const pack = await loadDemoPack();
+  pack.cols.n[0] = 'Pessoa } ] " /*PACK_END*/ </script>';
+  const html = `<script>throw new Error('não executar');</script><script>const PACK = ${JSON.stringify(pack)};\n/*PACK_END*/</script>`;
+  assert.deepEqual(extractPack(html), pack);
+  assert.throws(() => extractPack('<html>sem base</html>'), /Não encontrei/);
 });

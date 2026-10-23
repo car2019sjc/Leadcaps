@@ -21,7 +21,15 @@ Abra `http://127.0.0.1:8000`. O servidor disponibiliza somente `dist/`, evitando
 
 `npm run build` produz `dist/index.html`, um HTML independente com três contatos fictícios. `npm run build:demo` faz a mesma compilação de demonstração. A interface identifica essa base como fictícia. A pasta `dist/` é gerada e não vai para o Git.
 
-Para uso local com a base real, disponibilize `data/private/base.pack.json` e execute `npm run build:local`. O HTML original e sua base extraída são preservados localmente em `reference/private/` e `data/private/`, fora do Git. Os metadados do arquivo recebido, incluindo quantidade e hash, estão em `data/base.metadata.json`.
+Para uso local com a base real, execute:
+
+```bash
+npm run import:html -- "caminho/OnSet_Console_Decisores_v3.html"
+npm run build:local
+npm start
+```
+
+A extração lê somente o JSON incorporado e não executa o HTML. O original e a base extraída ficam em `reference/private/` e `data/private/`, fora do Git. Os metadados do arquivo recebido, incluindo quantidade e hash, estão em `data/base.metadata.json`; os da última importação ficam na pasta privada.
 
 ## Estrutura
 

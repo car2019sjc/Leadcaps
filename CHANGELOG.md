@@ -8,3 +8,4 @@
 - Compilação para HTML único, testes locais e preparação de verificações no GitHub.
 - Especificação e roteiro de integração do módulo de conteúdo.
 - Escape de dados ao regenerar o HTML, sem alterar os scores ou filtros.
+- Extração local da base a partir do HTML original, sem executar scripts nem publicar contatos.

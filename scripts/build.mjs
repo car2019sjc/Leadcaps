@@ -30,7 +30,10 @@ export async function build({ privateData = false, output = resolve(root, 'dist/
     : await loadDemoPack();
   const count = validatePack(pack);
   let app = await readFile(resolve(root, 'src/js/app.js'), 'utf8');
-  const date = privateData ? meta.base_date : '2026-10-23';
+  const localMeta = privateData
+    ? await readFile(resolve(root, 'data/private/base.metadata.json'), 'utf8').then(JSON.parse).catch(() => meta)
+    : null;
+  const date = privateData ? localMeta.base_date || meta.base_date : '2026-10-23';
   app = app.replace("'__BASE_DATE__'", JSON.stringify(date)).replace("'__APP_BUILD__'", "'2026.10.23-repo.1'");
   const entries = {
     CONSOLE_CSS: await readFile(resolve(root, 'src/styles/console.css'), 'utf8'),
