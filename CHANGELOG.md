@@ -1,5 +1,12 @@
 # Alterações
 
+## Configuração da chave pelo Windows — 23/10/2026
+
+- Janela com campo oculto e botão Colar chave, usando a área de transferência do Windows.
+- Configuração enviada por entrada padrão SSH, sem terminal remoto, validada pela VPS antes de gravar o `.env` privado.
+- Aplicação somente na API do Leadcaps, sem nova publicação no Netlify.
+- Verificações do formulário e do transporte privado no Windows PowerShell, além da preservação da configuração e do backup na VPS.
+
 ## Ajuste do configurador Anthropic — 23/10/2026
 
 - Seleção de modelo aceita número, nome completo ou ID, com nova tentativa sem repetir a entrada da chave.

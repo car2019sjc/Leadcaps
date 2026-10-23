@@ -10,6 +10,29 @@ Esta versão não consulta buscadores, não automatiza o AnswerThePublic, não m
 
 ## Configurar a Anthropic, na VPS
 
+### Alternativa com janela do Windows, para dificuldade ao colar no terminal
+
+Na instalação de Rodrigues (`/opt/leadcaps`, VPS `177.153.38.233`), o configurador Windows abre um campo de senha com botão **Colar chave**, usando a área de transferência do Windows. O modelo vem selecionado como **Claude Sonnet 5.5**, escolhido para este piloto; o servidor consulta os modelos elegíveis da conta antes de salvar. Workspace é opcional.
+
+Se estiver dentro da VPS, encerre a pergunta interativa com Ctrl+C e use `exit` para voltar ao PowerShell do Windows. Confira se o prompt começa com `PS C:\`, depois execute um comando por vez:
+
+```powershell
+Set-Location 'C:\Projetos\Leadcaps'
+git pull --ff-only
+if ($LASTEXITCODE -ne 0) { throw 'Falha ao atualizar o configurador.' }
+powershell.exe -NoProfile -STA -ExecutionPolicy Bypass -File .\deploy\configure-anthropic-windows.ps1
+```
+
+O script atualiza o código em `/opt/leadcaps` por SSH antes de abrir a janela. Copie a chave na Anthropic, clique em **Colar chave** e depois em **Salvar e aplicar**. Se a conexão SSH pedir autenticação, conclua o acesso no terminal; é a credencial SSH da VPS, separada da chave Anthropic. Fechar/cancelar a janela não envia uma chave.
+
+A chave viaja somente na entrada padrão da conexão SSH, com `-T` para impedir eco de terminal remoto. Não entra nos argumentos dos processos, no histórico de comandos ou em arquivo local de credenciais. O configurador da VPS recebe JSON limitado a 4 KB, valida os campos, consulta a lista de modelos e grava no `.env` privado com backup e permissão 600. Em seguida, o script recria somente o serviço `api`, com `--no-deps`, e espera seu estado saudável. Não há chamada de geração de conteúdo. Se essa última etapa falhar, a configuração pode já ter sido salva; leia a etapa indicada antes de tentar outra vez.
+
+Ao aparecer `Configuracao aplicada`, feche e reabra **Inteligência de conteúdo** no aplicativo para carregar a configuração. Não é necessário publicar outro `dist` para configurar esta chave.
+
+O `ExecutionPolicy Bypass` vale somente para esse processo do PowerShell; o comando não muda a política permanente do Windows.
+
+### Alternativa pelo terminal SSH interativo
+
 No PowerShell do Windows, entre na VPS:
 
 ```powershell

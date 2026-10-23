@@ -2,6 +2,8 @@
 
 Para instalar a inteligência editorial 0.3 com sua API Anthropic, siga [o roteiro específico](modulo-conteudo.md): configuração oculta da chave na VPS, backup, atualização da API e compilação do frontend para deploy manual.
 
+Se não conseguir colar a chave no terminal, esse roteiro também oferece `deploy/configure-anthropic-windows.ps1`: uma janela do Windows com botão **Colar chave**, envio por SSH e aplicação somente na API do Leadcaps.
+
 ## Onde fica cada parte
 
 | Local | Conteúdo |

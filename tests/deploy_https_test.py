@@ -1,8 +1,13 @@
 import copy
+import contextlib
 import importlib.util
+import io
+import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest import mock
 
 spec = importlib.util.spec_from_file_location("enable_https", Path(__file__).resolve().parents[1] / "deploy/enable_https.py")
 deploy = importlib.util.module_from_spec(spec)
@@ -13,6 +18,69 @@ config_spec.loader.exec_module(config)
 
 
 class DeploymentGuards(unittest.TestCase):
+    def test_private_payload_validates_credentials_and_rejects_unexpected_input(self):
+        valid = {"key": "fictitious-windows-key-1234567890", "model": "claude-test", "workspace": ""}
+        self.assertEqual(config.read_private_payload(io.StringIO(json.dumps(valid))), (valid['key'], '', 'claude-test'))
+        invalid = ["not-json", json.dumps([]), json.dumps({**valid, "unexpected": "value"}),
+                   json.dumps({**valid, "key": 123}), json.dumps({**valid, "key": "bad\nkey"}),
+                   json.dumps({**valid, "workspace": "invalid"}), json.dumps({**valid, "model": "bad model"}), ' ' * 4097]
+        for text in invalid:
+            with self.subTest(text=text[:20]):
+                with self.assertRaises(config.ConfigurationError):
+                    config.read_private_payload(io.StringIO(text))
+
+    def test_private_stdin_saves_with_backup_without_logging_secrets(self):
+        key = "fictitious-windows-key-1234567890"
+        original = b"POSTGRES_PASSWORD=fictitious-database-password\nALLOWED_ORIGINS=https://example.com\nAPI_PORT=8310\n"
+        old_mask = os.umask(0o077)
+        try:
+            with tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                env_path = root / '.env'
+                env_path.write_bytes(original)
+                source = io.StringIO(json.dumps({"key": key, "model": "claude-test"}))
+                output = io.StringIO()
+                with mock.patch.object(config, 'ROOT', root), mock.patch.object(config.os, 'geteuid', return_value=0), \
+                     mock.patch.object(config.sys, 'stdin', source), \
+                     mock.patch.object(config, 'available_models', return_value=[{"id": "claude-test"}]) as models, \
+                     mock.patch.object(config.getpass, 'getpass', side_effect=AssertionError('No interactive key prompt')), \
+                     contextlib.redirect_stdout(output):
+                    config.main(from_stdin=True)
+                models.assert_called_once_with(key, '')
+                saved = env_path.read_text()
+                self.assertTrue(saved.startswith(original.decode()))
+                self.assertIn('ANTHROPIC_MODEL=claude-test\n', saved)
+                self.assertEqual(env_path.stat().st_mode & 0o777, 0o600)
+                backups = list((root / 'backups').glob('*/env.before'))
+                self.assertEqual(len(backups), 1)
+                self.assertEqual(backups[0].read_bytes(), original)
+                self.assertNotIn(key, output.getvalue())
+                self.assertNotIn('fictitious-database-password', output.getvalue())
+        finally:
+            os.umask(old_mask)
+
+    def test_unavailable_private_model_does_not_write_env_or_backup(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            original = b"POSTGRES_PASSWORD=fictitious-password\n"
+            (root / '.env').write_bytes(original)
+            source = io.StringIO(json.dumps({"key": "fictitious-windows-key-1234567890", "model": "unavailable-model"}))
+            with mock.patch.object(config, 'ROOT', root), mock.patch.object(config.os, 'geteuid', return_value=0), \
+                 mock.patch.object(config.sys, 'stdin', source), \
+                 mock.patch.object(config, 'available_models', return_value=[{"id": "other-model"}]):
+                with self.assertRaises(config.ConfigurationError):
+                    config.main(from_stdin=True)
+            self.assertEqual((root / '.env').read_bytes(), original)
+            self.assertFalse((root / 'backups').exists())
+
+    def test_private_stdin_rejects_a_remote_terminal(self):
+        source = mock.Mock()
+        source.isatty.return_value = True
+        with mock.patch.object(config.os, 'geteuid', return_value=0), mock.patch.object(config.sys, 'stdin', source):
+            with self.assertRaises(config.ConfigurationError):
+                config.main(from_stdin=True)
+        source.read.assert_not_called()
+
     def test_anthropic_model_accepts_number_name_and_id(self):
         models = [
             {"id": "claude-sonnet-test", "display_name": "Claude Sonnet Test"},
