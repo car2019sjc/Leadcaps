@@ -278,6 +278,7 @@
     <button class="dr__x" id="basesClose" aria-label="Fechar bases">×</button>
     <h2 class="modal__t">Suas bases de contatos</h2>
     <p class="modal__p">Cada importação preserva seus contatos e sua origem. Escolha a base que deseja usar no painel.</p>
+    <p id="dbMessage" role="status" aria-live="polite" class="modal__p db-message"></p>
     <form id="dbLogin">
       <label class="db-field">Endereço do backend<input id="dbApi" type="url" placeholder="https://api.seudominio.com.br" required autocomplete="url"></label>
       <label class="db-field">Login<input id="dbUsername" required autocomplete="username" minlength="3" maxlength="100"></label>
@@ -294,7 +295,6 @@
       <div id="dbItems"></div>
       <button class="btn" id="dbMore" hidden>Ver bases anteriores</button>
     </div>
-    <p id="dbMessage" role="status" aria-live="polite" class="modal__p"></p>
   </div>
 </div>
 <div class="modal ds" id="dossie" aria-hidden="true" role="dialog" aria-label="Dossiê de abordagem">

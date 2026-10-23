@@ -14,6 +14,8 @@ O horário de importação não comprova quando os contatos foram pesquisados ou
 4. O servidor valida o contrato e grava uma única linha transacional em `lead_imports`, com o snapshot completo dos contatos em JSONB. Não armazena o arquivo Excel original.
 5. A confirmação mostra os dados gravados. **Usar esta base** carrega os contatos no painel por escolha explícita.
 6. Em **Bases salvas**, consultar outras pesquisas e alternar entre elas. A listagem carrega somente metadados; os contatos são consultados ao selecionar uma base.
+7. **Atualizar lista** faz uma nova consulta ao banco e mostra horário de Brasília e quantidade de bases no topo. Se os dados não mudaram, as mesmas bases continuam listadas.
+8. Para uma carga importada por seu usuário, **Excluir base** abre uma confirmação com descrição e quantidade de contatos. **Cancelar** preserva a carga. **Confirmar exclusão** remove definitivamente o snapshot selecionado. Se ele estiver ativo nesta aba, seus contatos são retirados do painel, que volta à base inicial. As demais cargas são preservadas.
 
 O modo local continua disponível e exige descrição, mas seus dados só duram a sessão ou o HTML exportado. O texto da interface informa essa condição. A combinação por completude é uma função local herdada; não é aplicada às cargas persistidas.
 
@@ -31,7 +33,7 @@ O modo local continua disponível e exige descrição, mas seus dados só duram 
 | pack_version / pack | Contrato v1 e contatos normalizados, em JSONB |
 | request_id | Chave de idempotência; um reenvio igual retorna a mesma carga |
 
-Snapshots de arquivos diferentes podem conter o mesmo contato com valores diferentes. Isso é intencional: os atributos continuam ligados à pesquisa correspondente. Não há cadastro mestre, atualização automática por pessoa, deduplicação entre pesquisas, exclusão ou edição de bases na API v1.
+Snapshots de arquivos diferentes podem conter o mesmo contato com valores diferentes. Isso é intencional: os atributos continuam ligados à pesquisa correspondente. Não há cadastro mestre, atualização automática por pessoa, deduplicação entre pesquisas, edição de bases na API v1. Desde a versão 0.5.1, o usuário que importou uma base pode excluí-la explicitamente, com confirmação.
 
 Datas são transmitidas em ISO 8601. A biblioteca apresenta o horário de Brasília explicitamente; o carimbo geral do console usa o fuso do navegador. O conteúdo do snapshot não é registrado nos logs da API.
 
@@ -53,6 +55,9 @@ Datas são transmitidas em ISO 8601. A biblioteca apresenta o horário de Brasí
 | GET /v1/imports?offset=0 | Bearer | Até 100 metadados; next_offset para a página seguinte |
 | POST /v1/imports | Bearer, description, filename, source_sha256, request_id, pack | 201 para carga nova; 200 em reenvio idêntico; 409 se reutilizar a chave com outro conteúdo |
 | GET /v1/imports/{id} | Bearer | Metadados e snapshot completo |
+| DELETE /v1/imports/{id} | Bearer, confirmation_description igual à descrição da base | 204 para exclusão confirmada ou carga já ausente; 403 para outra autoria; 409 para confirmação divergente |
 | GET /health | Nenhuma | Disponibilidade da API e conexão com o banco |
 
 Erros de contrato retornam 400; sessão ausente/expirada, 401; origem não autorizada, 403; limite excedido, 413; excesso de tentativas de login, 429. Uma falha de consulta nunca é apresentada como base vazia ou importação concluída.
+
+A exclusão não é repetida automaticamente quando houver falha de conexão; confira a lista antes de tentar novamente. Backups e arquivos exportados anteriormente não são alterados. Outras abas abertas precisam atualizar sua lista. A exclusão usa a autoria já gravada e não requer migração de tabelas.

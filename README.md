@@ -2,9 +2,11 @@
 
 Console de prospecção da OnSet Tecnologia com bases de contatos preservadas no PostgreSQL.
 
-## Escopo ativo — versão 0.5
+## Escopo ativo — versão 0.5.1
 
 Rodrigues encerrou o módulo de inteligência de conteúdo em 23/10/2026. O projeto mantém o console original e a gestão de bases: login, importação Excel/CSV, descrição obrigatória, data/hora do servidor, autoria, consulta e escolha de qual base carregar. Cada carga é independente; uma importação não apaga, combina nem ativa automaticamente outras pesquisas.
+
+Em **Bases salvas**, **Atualizar lista** mostra horário e quantidade consultada. **Excluir base** permite remover permanentemente uma carga importada pelo próprio usuário, após confirmação. Excluir a carga ativa também a retira do painel; as demais permanecem salvas.
 
 O console oferece filtros por cargo, setor, porte, localização e faturamento, seleção de contatos, mapa do Brasil e exportação Excel. As regras originais de classificação e score não foram recalibradas. O dossiê opcional herdado do HTML é separado do módulo editorial retirado; a API de bases não possui integrações com fornecedores de IA ou pesquisa.
 

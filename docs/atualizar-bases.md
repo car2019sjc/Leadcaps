@@ -1,4 +1,4 @@
-# Atualização 0.5 — somente bases de dados
+# Atualização 0.5.1 — somente bases de dados
 
 Rodrigues encerrou o módulo de inteligência de conteúdo em 23/10/2026. Esta atualização retira suas telas, rotas, filas e configurações do código ativo. A API atende autenticação, bases e saúde do banco. O console original continua com filtros, importação, escolha de bases e exportações.
 
@@ -43,3 +43,7 @@ Publique somente a pasta `dist` no projeto Leadcaps existente no Netlify, pelo u
 Abra https://leadcaps.synapseia.com.br, atualize com Ctrl+F5 e entre em **Conectar banco**. O botão **Inteligência de conteúdo** deve ter desaparecido. Abra **Bases salvas** e escolha uma base existente; confira descrição, quantidade, usuário e horário. Novas importações continuam exigindo descrição e sua ativação no painel depende da escolha do usuário.
 
 O código e os documentos anteriores permanecem no histórico Git, caso sejam necessários para auditoria. Essa preservação não reativa o módulo nem agenda seu desenvolvimento.
+
+## Excluir base e atualizar a lista — versão 0.5.1
+
+Atualize a API pelo passo 1 antes de publicar o frontend. A exclusão depende da nova rota autenticada no servidor; atualizar somente a lista não instala essa funcionalidade. Em Bases salvas, o botão Excluir base aparece nas cargas importadas por seu usuário. Confira nome e quantidade, depois confirme a exclusão permanente ou cancele. A lista passa a mostrar o horário e a quantidade consultada no topo da janela. Não há nova migração de banco.

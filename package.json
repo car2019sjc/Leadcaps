@@ -1,6 +1,6 @@
 {
   "name": "leadcaps",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "private": true,
   "description": "Console de prospecção da OnSet com importações preservadas no PostgreSQL",
   "type": "module",

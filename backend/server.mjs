@@ -8,7 +8,7 @@ import { HttpError, text, validateImport } from './validation.mjs';
 
 const MAX_BODY = 10 * 1024 * 1024;
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const metadata = 'i.id, i.description, i.filename, i.source_sha256, i.imported_at, i.record_count, i.pack_version, u.display_name AS imported_by';
+const metadata = 'i.id, i.description, i.filename, i.source_sha256, i.imported_at, i.record_count, i.pack_version, i.imported_by AS imported_by_id, u.display_name AS imported_by';
 
 async function readJson(req) {
   if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) throw new HttpError(415, 'Envie application/json.');
@@ -100,6 +100,24 @@ export async function createApi({ pool, origins }) {
         return send(inserted.length ? 201 : 200, { item });
       }
       const match = /^\/v1\/imports\/([^/]+)$/.exec(url.pathname);
+      if (req.method === 'DELETE' && match) {
+        if (!uuid.test(match[1])) throw new HttpError(400, 'Identificador inválido.');
+        const input = await readJson(req);
+        const confirmation = text(input?.confirmation_description, 'Confirmação da base', 5, 500);
+        const client = await pool.connect();
+        try {
+          await client.query('BEGIN');
+          const { rows } = await client.query('SELECT imported_by,description FROM lead_imports WHERE id=$1 FOR UPDATE', [match[1]]);
+          if (rows[0]) {
+            if (rows[0].imported_by !== user.id) throw new HttpError(403, 'Somente o usuário que importou esta base pode excluí-la.');
+            if (rows[0].description !== confirmation) throw new HttpError(409, 'A confirmação não corresponde à base. Atualize a lista antes de excluir.');
+            await client.query('DELETE FROM lead_imports WHERE id=$1', [match[1]]);
+          }
+          await client.query('COMMIT');
+        } catch (error) { await client.query('ROLLBACK'); throw error; }
+        finally { client.release(); }
+        return send(204);
+      }
       if (req.method === 'GET' && match) {
         if (!uuid.test(match[1])) throw new HttpError(400, 'Identificador inválido.');
         const { rows } = await pool.query(`SELECT ${metadata}, i.pack FROM lead_imports i JOIN app_users u ON u.id=i.imported_by WHERE i.id=$1`, [match[1]]);

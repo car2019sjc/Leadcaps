@@ -28,5 +28,6 @@ CREATE TABLE lead_imports (
   UNIQUE(imported_by, request_id)
 );
 CREATE INDEX lead_imports_date ON lead_imports(imported_at DESC, id DESC);
--- Uma carga é um snapshot completo, sem atualização ou exclusão pela API v1.
+-- Uma carga é um snapshot completo, sem atualização por contato.
+-- A API permite exclusão explícita e confirmada pelo usuário que a importou.
 -- Não há contato global que sobrescreva os atributos de pesquisas anteriores.

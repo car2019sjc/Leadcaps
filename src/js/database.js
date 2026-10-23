@@ -1,6 +1,6 @@
 /* Backend opcional. Token somente em memória; contatos nunca são gravados em storage do navegador. */
 const DB = (() => {
-  let token = '', api = '', user = null, nextOffset = null, busyImport = false;
+  let token = '', api = '', user = null, nextOffset = null, busyImport = false, libraryBusy = false;
   const el = id => document.getElementById(id);
   const message = value => { el('dbMessage').textContent = value; };
   const connected = () => !!token;
@@ -26,9 +26,13 @@ const DB = (() => {
     if (!response.ok) throw new Error(data.error || 'Falha na consulta ao banco.');
     return data;
   }
-  async function list(append = false) {
-    message('Consultando bases salvas…');
-    try {
+  function setLibraryBusy(value) {
+    libraryBusy = value;
+    el('dbLibrary').querySelectorAll('button').forEach(button => { button.disabled = value; });
+    el('dbItems').setAttribute('aria-busy', String(value));
+    el('dbRefresh').textContent = value ? 'Atualizando…' : 'Atualizar lista';
+  }
+  async function refreshList(append = false) {
       const data = await request('/v1/imports' + (append ? `?offset=${nextOffset}` : ''));
       if (!append) el('dbItems').replaceChildren();
       for (const item of data.items) {
@@ -39,11 +43,47 @@ const DB = (() => {
         detail.textContent = `${item.record_count.toLocaleString('pt-BR')} contatos · ${date} (Brasília) · ${item.imported_by} · ${item.filename}`;
         const button = document.createElement('button'); button.className = 'btn'; button.textContent = 'Usar esta base';
         button.onclick = async () => { button.disabled = true; try { await activate(item.id); } finally { button.disabled = false; } };
-        card.append(title, detail, button); el('dbItems').append(card);
+        const actions = document.createElement('div'); actions.className = 'db-actions'; actions.append(button);
+        if (item.imported_by_id === user?.id && user?.id) {
+          const remove = document.createElement('button'); remove.className = 'btn db-danger'; remove.textContent = 'Excluir base';
+          const confirmation = document.createElement('section'); confirmation.className = 'db-delete-confirm'; confirmation.hidden = true;
+          const warning = document.createElement('p'); warning.textContent = `Excluir permanentemente a base “${item.description}” e seus ${item.record_count.toLocaleString('pt-BR')} contatos do banco? As outras bases continuarão salvas.`;
+          const confirm = document.createElement('button'); confirm.className = 'btn db-danger'; confirm.textContent = 'Confirmar exclusão';
+          const cancel = document.createElement('button'); cancel.className = 'btn'; cancel.textContent = 'Cancelar';
+          remove.onclick = () => { confirmation.hidden = false; remove.hidden = true; cancel.focus(); };
+          cancel.onclick = () => { confirmation.hidden = true; remove.hidden = false; remove.focus(); };
+          confirm.onclick = () => removeSaved(item, card);
+          confirmation.append(warning, confirm, cancel); actions.append(remove); card.append(title, detail, actions, confirmation);
+        } else card.append(title, detail, actions);
+        el('dbItems').append(card);
       }
       nextOffset = data.next_offset; el('dbMore').hidden = nextOffset === null;
-      message(data.items.length || append ? 'Escolha uma base para carregar no painel. As demais continuarão salvas.' : 'Nenhuma base salva. Importe uma planilha para começar.');
-    } catch (error) { message(error.message); }
+      const total = el('dbItems').children.length;
+      const when = new Date().toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+      const outdated = total && (!user?.id || data.items.some(item => !item.imported_by_id));
+      const notice = `Lista atualizada às ${when} (Brasília). ${total ? `${total} base(s) exibida(s). Escolha qual carregar no painel.` : 'Nenhuma base salva. Importe uma planilha para começar.'}${outdated ? ' Para habilitar Excluir base, conclua a atualização da API na VPS e entre novamente.' : ''}`;
+      message(notice); return notice;
+  }
+  async function list(append = false) {
+    if (libraryBusy) return;
+    setLibraryBusy(true); message('Consultando bases salvas…');
+    try { await refreshList(append); }
+    catch (error) { message(error.message); }
+    finally { setLibraryBusy(false); }
+  }
+  async function removeSaved(item, card) {
+    if (libraryBusy) return;
+    if (busyImport) { message('Aguarde a importação em andamento antes de excluir uma base.'); return; }
+    setLibraryBusy(true); message('Excluindo a base selecionada…');
+    try {
+      await request(`/v1/imports/${encodeURIComponent(item.id)}`, { method: 'DELETE', body: { confirmation_description: item.description } });
+      if (SOURCE?.id === item.id) clearSavedBase();
+      card.remove(); toast('Base excluída do banco.');
+      try { const notice = await refreshList(); message(`Base “${item.description}” excluída. ${notice}`); }
+      catch (error) { message(`Exclusão confirmada. Não foi possível atualizar a lista: ${error.message}`); }
+    } catch (error) {
+      message(/^Não foi possível acessar/.test(error.message) ? 'Não foi possível confirmar a exclusão. Use Atualizar lista para conferir antes de tentar novamente.' : error.message);
+    } finally { setLibraryBusy(false); }
   }
   function open() {
     el('bases').classList.add('on'); el('bases').setAttribute('aria-hidden', 'false'); update();
@@ -51,12 +91,15 @@ const DB = (() => {
   }
   function close() { el('bases').classList.remove('on'); el('bases').setAttribute('aria-hidden', 'true'); }
   async function activate(id) {
+    if (libraryBusy) return;
+    setLibraryBusy(true);
     try {
       message('Carregando contatos…');
       const { item } = await request(`/v1/imports/${encodeURIComponent(id)}`);
       activateSavedBase(item);
       close(); closeUpl(); toast(`Base carregada: ${item.description}`);
     } catch (error) { message(error.message); toast(error.message); }
+    finally { setLibraryBusy(false); }
   }
   async function save(file, rows, description) {
     const bytes = await file.arrayBuffer();

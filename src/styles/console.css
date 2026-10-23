@@ -405,4 +405,7 @@ tbody tr.sel{background:#FFFAF0}
 .db-actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}
 .db-card{border:1px solid var(--line);border-radius:10px;padding:14px;margin:12px 0}
 .db-card strong{overflow-wrap:anywhere;color:var(--navy)}
+.db-danger{color:#a61c24;border-color:#d78e94}.db-danger:hover{background:#fff0f1}
+.db-delete-confirm{padding:12px;border:1px solid #d78e94;border-radius:8px;background:#fff8f8}.db-delete-confirm .btn{margin:4px 8px 0 0}
+.db-message:not(:empty){padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:#f3f7fa}
 .db-card p{font-size:12px;line-height:1.6;color:var(--muted);overflow-wrap:anywhere;margin:6px 0 12px}
