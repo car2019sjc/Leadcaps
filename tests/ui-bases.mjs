@@ -31,6 +31,7 @@ import { once } from 'node:events';
     }
     if (url.pathname.startsWith('/v1/imports/') && request.method()==='DELETE') {
       deleteCalls++;
+      if (failDelete==='network') { failDelete=false; return route.abort('failed'); }
       if (failDelete) { failDelete=false; return reply(500,{error:'Falha simulada na exclusão.'}); }
       const index=bases.findIndex(b=>b.id===url.pathname.split('/').at(-1));
       if(index>=0){assert.equal(request.postDataJSON().confirmation_description,bases[index].description);assert.equal(bases[index].imported_by_id,userId);bases.splice(index,1);}
@@ -80,13 +81,16 @@ import { once } from 'node:events';
   await ownCard.getByRole('button',{name:'Confirmar exclusão',exact:true}).click();
   await page.waitForFunction(()=>document.getElementById('dbMessage').textContent.includes('Falha simulada'));
   assert.equal(bases.length,2);assert.equal(await page.locator('#tblN').textContent(),'1');
+  failDelete='network';await ownCard.getByRole('button',{name:'Confirmar exclusão',exact:true}).click();
+  await page.waitForFunction(()=>document.getElementById('dbMessage').textContent.includes('Não foi possível confirmar a exclusão'));
+  assert.equal(bases.length,2);assert.equal(deleteCalls,2,'Não repetir exclusão automaticamente após falha de rede');
   await ownCard.getByRole('button',{name:'Confirmar exclusão',exact:true}).click();
   await page.waitForFunction(()=>document.querySelectorAll('.db-card').length===1&&!document.getElementById('dbRefresh').disabled);
-  assert.equal(deleteCalls,2);assert.equal(bases.length,1);assert.equal(await ownCard.count(),0);
+  assert.equal(deleteCalls,3);assert.equal(bases.length,1);assert.equal(await ownCard.count(),0);
   assert.equal(await page.locator('#tblN').textContent(),'3','Excluir a base ativa deve limpar os contatos do painel');
   assert.match(await page.locator('#dbMessage').textContent(),/excluída/);
   await page.locator('#dbLogout').click();
-  await page.waitForFunction(() => document.getElementById('tblN').textContent === '3');
+  await page.waitForFunction(() => !document.getElementById('dbLogin').hidden);
   assert.equal(await page.locator('#dbLogin').isVisible(), true);
   assert.equal(errors.length, 0, errors.join('\n'));
   await page.setViewportSize({ width: 390, height: 844 });
