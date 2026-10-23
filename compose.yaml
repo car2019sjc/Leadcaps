@@ -26,6 +26,10 @@ services:
       DATABASE_URL: postgresql://leadcaps:${POSTGRES_PASSWORD:?Configure POSTGRES_PASSWORD}@db:5432/leadcaps
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:?Configure ALLOWED_ORIGINS}
       PORT: '8080'
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-}
+      ANTHROPIC_WORKSPACE_ID: ${ANTHROPIC_WORKSPACE_ID:-}
+      CONTENT_DAILY_LIMIT: ${CONTENT_DAILY_LIMIT:-20}
     ports:
       - '127.0.0.1:${API_PORT:-8310}:8080'
     networks: [database, edge]

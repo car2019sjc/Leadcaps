@@ -36,8 +36,9 @@ export async function build({ privateData = false, output = resolve(root, 'dist/
   const date = privateData ? localMeta.base_date || meta.base_date : '2026-10-23';
   const apiUrl = process.env.LEADCAPS_API_URL || '';
   if (apiUrl && !/^https?:\/\//.test(apiUrl)) throw new Error('LEADCAPS_API_URL precisa ser uma URL HTTP(S).');
-  app = app.replace("'__BASE_DATE__'", scriptSafeJson(date)).replace("'__APP_BUILD__'", "'2026.10.23-repo.2'").replace("'__API_URL__'", scriptSafeJson(apiUrl));
+  app = app.replace("'__BASE_DATE__'", scriptSafeJson(date)).replace("'__APP_BUILD__'", "'2026.10.23-repo.3'").replace("'__API_URL__'", scriptSafeJson(apiUrl));
   app = (await readFile(resolve(root, 'src/js/database.js'), 'utf8')) + '\n' + app;
+  app = (await readFile(resolve(root, 'src/js/content.js'), 'utf8')) + '\n' + app;
   const entries = {
     CONSOLE_CSS: await readFile(resolve(root, 'src/styles/console.css'), 'utf8'),
     XLSX_EXPORT_JS: await readFile(resolve(root, 'src/js/xlsx-export.js'), 'utf8'),
@@ -45,6 +46,7 @@ export async function build({ privateData = false, output = resolve(root, 'dist/
     BRAZIL_MAP_JS: await readFile(resolve(root, 'src/js/brazil-map.js'), 'utf8'),
     APP_JS: `const PACK = ${scriptSafeJson(pack)};\n/*PACK_END*/\n${app}`,
     LOGO_1_URI: 'data:image/png;base64,' + (await readFile(resolve(root, 'src/assets/logo-1.png'))).toString('base64'),
+    CONTENT_HTML: await readFile(resolve(root, 'src/content.html'), 'utf8'),
   };
   let html = await readFile(resolve(root, 'src/template.html'), 'utf8');
   for (const [key, value] of Object.entries(entries)) html = html.replaceAll(`@@${key}@@`, () => value);

@@ -4,9 +4,9 @@ Projeto específico da OnSet Tecnologia para prospecção e desenvolvimento do m
 
 ## Estado atual
 
-A versão inicial organiza o HTML entregue por Rodrigues em fontes separadas, preservando o comportamento do console. O módulo de pesquisa de temas, oportunidades e briefings está especificado em `docs/especificacao-modulo-conteudo.md`; sua interface e seus serviços ainda serão implementados.
+A versão inicial organiza o HTML entregue por Rodrigues em fontes separadas, preservando o comportamento do console. A versão 0.3 implementa o primeiro fluxo de inteligência de conteúdo com Anthropic no servidor: contexto, resultados de pesquisa fornecidos, oportunidades revisáveis, briefing, versões, aprovação e exportação Markdown. Consulte o [roteiro do módulo](docs/modulo-conteudo.md) para instalar e usar.
 
-A versão 0.2 acrescenta o backend de bases: login, descrição obrigatória, data/hora do servidor, autoria e contatos preservados por importação. **Bases salvas** permite escolher qual pesquisa carregar, sem substituir ou combinar automaticamente cargas anteriores. Código preparado para Docker/PostgreSQL na VPS e frontend manual no Netlify; implantação em produção ainda pendente.
+A versão 0.2 acrescenta o backend de bases: login, descrição obrigatória, data/hora do servidor, autoria e contatos preservados por importação. **Bases salvas** permite escolher qual pesquisa carregar, sem substituir ou combinar automaticamente cargas anteriores. A API de bases foi validada por HTTPS no ambiente informado. A versão 0.3 ainda requer atualização da API e publicação manual do novo frontend.
 
 O console já oferece filtros por cargo, setor, porte, localização e faturamento, seleção de contatos, mapa do Brasil, importação CSV/XLSX, exportação Excel, geração de um HTML com a base atualizada e dossiê de empresa com análise de IA.
 
@@ -59,7 +59,7 @@ reference/                 Orientações e HTML privado local ignorado
 
 O repositório Leadcaps criado por Rodrigues é público. Por isso, somente código, documentação, metadados e exemplos fictícios são publicados. A base recebida de 5.157 contatos contém nomes, cargos, empresas, e-mails reconstruíveis e perfis de LinkedIn e permanece fora do Git. Não publicar o HTML produzido por `build:local`. Planilhas de trabalho, exportações e arquivos `.env` também ficam fora do Git. O campo `private` do package.json impede publicar o pacote no npm e não muda a visibilidade do GitHub.
 
-A análise de IA do HTML original solicita uma chave da Anthropic e faz a chamada diretamente do navegador. Essa chave começa vazia e fica na memória da aba. O novo backend trata bases e autenticação; ainda não oferece proxy de IA. Mover as consultas de IA para o servidor faz parte da próxima etapa editorial. Nenhuma consulta paga é necessária para executar os testes.
+A análise de IA do dossiê original ainda solicita uma chave da Anthropic no navegador e a mantém somente na memória da aba. Essa função herdada é separada do novo módulo editorial, que usa exclusivamente a chave privada da VPS. O módulo não reutiliza nem solicita uma chave no navegador. A migração do dossiê legado para o servidor permanece futura. Nenhuma consulta paga é necessária para executar os testes.
 
 ## Backend e Netlify
 
@@ -73,6 +73,6 @@ Sem `TEST_DATABASE_URL`, o teste de integração de banco é indicado como ignor
 
 ## Próxima etapa
 
-Implantar e validar a persistência na infraestrutura informada e implementar o ciclo tema → sinais com origem → classificação por pertinência → oportunidade → briefing revisado. O contexto editorial e o score de contatos são objetos diferentes: prioridade de conteúdo não qualifica uma pessoa automaticamente.
+Instalar a versão 0.3 e validar o primeiro briefing com a credencial real. Em seguida, avaliar adaptadores de pesquisa automática, edição mais ampla de grupos, conteúdo principal e integração com campanhas. O contexto editorial e o score de contatos são objetos diferentes: prioridade de conteúdo não qualifica uma pessoa automaticamente.
 
 Os pesos e as regras do módulo são propostas próprias. A implementação não usa código nem algoritmo proprietário do AnswerThePublic.

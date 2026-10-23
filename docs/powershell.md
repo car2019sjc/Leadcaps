@@ -1,5 +1,7 @@
 # Leadcaps — execução e atualização pelo PowerShell
 
+Para instalar a inteligência editorial 0.3 com sua API Anthropic, siga [o roteiro específico](modulo-conteudo.md): configuração oculta da chave na VPS, backup, atualização da API e compilação do frontend para deploy manual.
+
 ## Onde fica cada parte
 
 | Local | Conteúdo |

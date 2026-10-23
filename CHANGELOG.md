@@ -1,5 +1,14 @@
 # Alterações
 
+## 0.3.0 — Inteligência de conteúdo — 23/10/2026
+
+- Contexto e pesquisa preservados com origem, data, expressões originais e perfil agregado opcional.
+- Anthropic no servidor, saídas estruturadas, validação de referências e fila persistida com limites de consumo.
+- Oportunidades explicadas, revisão humana, notas pendentes e prioridade separada da evidência.
+- Briefings com versões, aprovação explícita e exportação Markdown da versão aprovada.
+- Configuração oculta da chave na VPS e atualização da API com backup prévio.
+- Testes de contrato, integração PostgreSQL, falhas de geração e uso completo da interface com Anthropic simulada.
+
 ## HTTPS — 23/10/2026
 
 - Gateway exclusivo do Leadcaps entre a rede do proxy existente e a rede da API, mantendo o PostgreSQL privado.

@@ -1,0 +1,107 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { readFile } from 'node:fs/promises';
+import pg from 'pg';
+import { validateResearch, validateOpportunity, validateBrief, evaluate } from '../backend/content-contract.mjs';
+import { anthropicProvider } from '../backend/anthropic.mjs';
+import { createApi } from '../backend/server.mjs';
+import { migrate } from '../backend/db.mjs';
+import { passwordHash } from '../backend/auth.mjs';
+import { researchInput, opportunityFixture, briefFixture } from './content-fixtures.mjs';
+
+test('conteúdo: preserva significado, repetição e ausência de métricas', () => {
+  const input=researchInput(); input.signals.push({...input.signals[0],text:' COMO reduzir incidentes recorrentes? '});
+  const data=validateResearch(input);
+  assert.equal(data.signals.length,3); assert.equal(data.signals[2].duplicate_of,'signal_001');
+  assert.notEqual(data.signals[0].normalized,data.signals[1].normalized);
+  assert.deepEqual(data.signals[0].metrics.volume,{value:null,status:'unavailable'});
+  assert.throws(()=>validateResearch({...input,signals:[],allow_hypothesis:false}),/hipótese/);
+  assert.throws(()=>validateResearch({...input,profile:{contacts:[]}}),/Campos/);
+  assert.throws(()=>validateResearch({...input,signals:[{...input.signals[0],url:'javascript:alert(1)'}]}),/URL/);
+});
+test('conteúdo: notas pendentes não viram zero nem prioridade completa', () => {
+  const data=validateResearch(researchInput()); const raw=opportunityFixture(data);
+  raw.scores.gap={value:5,reason:'Suposição da IA sem biblioteca'};
+  const opportunity=validateOpportunity(raw,data,{ai:true});
+  assert.equal(opportunity.scores.gap.value,null); assert.equal(opportunity.priority_score,null);
+  const complete=structuredClone(opportunity.scores); Object.values(complete).forEach(x=>x.value=5);
+  assert.equal(evaluate(complete).priority_score,100);
+  complete.intent.value=0; assert.equal(evaluate(complete).priority_score,80);
+  assert.throws(()=>validateOpportunity({...raw,evidence_refs:['fabricada']},data),/Referência/);
+  const b=briefFixture({research:data,opportunity:{data:opportunity}});
+  assert.throws(()=>validateBrief({...b,evidence_refs:['fabricada']},data,opportunity),/Referência/);
+});
+test('Anthropic: endpoint fixo, schema, limite e resultado sem expor credencial', async () => {
+  let calls=0;
+  const provider=anthropicProvider({key:'credencial-ficticia',model:'modelo-de-teste',fetchImpl:async(url,options)=>{
+    calls++; assert.equal(url,'https://api.anthropic.com/v1/messages');
+    const body=JSON.parse(options.body); assert.equal(body.max_tokens,4096); assert.ok(body.output_config.format.schema); assert.equal(body.tools,undefined);
+    assert.equal(options.headers.Authorization,'Bearer credencial-ficticia');
+    return new Response(JSON.stringify({stop_reason:'end_turn',model:'modelo-resolvido',content:[{type:'text',text:'{"opportunities":[]}'}],usage:{input_tokens:100,output_tokens:30}}),{headers:{'request-id':'req-test'}});
+  }});
+  const result=await provider.generate('opportunities',{research:validateResearch(researchInput())});
+  assert.equal(calls,1); assert.equal(result.model,'modelo-resolvido'); assert.equal(result.usage.output_tokens,30); assert.equal(result.request_id,'req-test');
+  const offline=anthropicProvider({key:'x',model:'x',fetchImpl:async()=>{throw new TypeError('network detail with secret');}});
+  await assert.rejects(()=>offline.generate('brief',{}),e=>e.code==='provider_unknown' && !e.message.includes('secret'));
+  const truncated=anthropicProvider({key:'x',model:'x',fetchImpl:async()=>new Response(JSON.stringify({stop_reason:'max_tokens',usage:{input_tokens:10,output_tokens:4096}}))});
+  await assert.rejects(()=>truncated.generate('brief',{}),e=>e.code==='incomplete_output' && e.usage.output_tokens===4096);
+});
+
+test('PostgreSQL editorial: migração preserva bases, fila idempotente, revisão, aprovação e versões', {skip:!process.env.TEST_DATABASE_URL}, async t=>{
+  const admin=new pg.Pool({connectionString:process.env.TEST_DATABASE_URL}); const schema='content_'+randomUUID().replaceAll('-','');
+  await admin.query(`CREATE SCHEMA ${schema}`);
+  const pool=new pg.Pool({connectionString:process.env.TEST_DATABASE_URL,options:`-c search_path=${schema}`,max:4});
+  let server, calls=0, failure=null;
+  t.after(async()=>{if(server){await server.content.stop();await new Promise(resolve=>{server.close(resolve);server.closeAllConnections();});} await pool.end();await admin.query(`DROP SCHEMA ${schema} CASCADE`);await admin.end();});
+  await pool.query(await readFile(new URL('../backend/migrations/001_initial.sql',import.meta.url),'utf8'));
+  await pool.query('CREATE TABLE schema_migrations(version integer PRIMARY KEY,applied_at timestamptz DEFAULT clock_timestamp())');await pool.query('INSERT INTO schema_migrations(version) VALUES(1)');
+  const userId=randomUUID();await pool.query('INSERT INTO app_users(id,login,display_name,password_hash) VALUES($1,$2,$3,$4)',[userId,'teste','Editor de teste',await passwordHash('senha-ficticia-1234')]);
+  await pool.query('INSERT INTO lead_imports(id,request_id,description,filename,source_sha256,payload_sha256,imported_by,record_count,pack) VALUES($1,$2,$3,$4,$5,$6,$7,1,$8)',[randomUUID(),randomUUID(),'Base anterior preservada','teste.csv','a'.repeat(64),'b'.repeat(64),userId,'{}']);
+  await migrate(pool); await migrate(pool); assert.equal((await pool.query('SELECT count(*)::integer AS n FROM lead_imports')).rows[0].n,1);
+  const provider={enabled:true,model:'modelo-ficticio',maxTokens:4096,generate:async(action,input)=>{calls++;if(failure)throw failure;return{data:action==='opportunities'?{opportunities:[opportunityFixture(input.research)]}:briefFixture(input),usage:{input_tokens:100,output_tokens:250},model:'modelo-ficticio-resolvido',request_id:'req-test'};}};
+  server=await createApi({pool,origins:['https://test.example'],contentProvider:provider,contentDailyLimit:5});
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const base=`http://127.0.0.1:${server.address().port}`;let token='';
+  const call=(path,method='GET',body)=>fetch(base+path,{method,headers:{Origin:'https://test.example',...(token?{Authorization:`Bearer ${token}`}:{ } ),...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined});
+  assert.equal((await call('/v1/content/config')).status,401);
+  token=(await(await call('/v1/sessions','POST',{login:'teste',password:'senha-ficticia-1234'})).json()).token;
+  let res=await call('/v1/content/config');assert.equal((await res.json()).enabled,true);
+  const input=researchInput();res=await call('/v1/content/researches','POST',input);assert.equal(res.status,201);const research=(await res.json()).item;
+  assert.equal((await call('/v1/content/researches','POST',input)).status,200);
+  assert.equal((await call('/v1/content/researches','POST',{...input,theme:'Outra pesquisa'})).status,409);
+  const jobInput={request_id:randomUUID(),research_id:research.id,action:'opportunities'};
+  res=await call('/v1/content/jobs','POST',jobInput);assert.equal(res.status,202);const job=(await res.json()).job;assert.equal(job.input,undefined);
+  assert.equal((await call('/v1/content/jobs','POST',jobInput)).status,200);assert.equal(calls,0);
+  await server.content.tick();assert.equal(calls,1);
+  let detail=await(await call(`/v1/content/researches/${research.id}`)).json();assert.equal(detail.jobs[0].status,'completed');assert.equal(detail.opportunities.length,1);
+  const opportunity=detail.opportunities[0];assert.equal(opportunity.data.priority_score,null);
+  const raw=opportunityFixture(research.data);raw.title='Checklist revisado pelo usuário';
+  res=await call(`/v1/content/opportunities/${opportunity.id}/reviews`,'POST',{expected_revision:1,data:raw});assert.equal(res.status,200);
+  assert.equal((await call(`/v1/content/opportunities/${opportunity.id}/reviews`,'POST',{expected_revision:1,data:raw})).status,409);
+  const briefJob={request_id:randomUUID(),research_id:research.id,action:'brief',opportunity_id:opportunity.id,expected_revision:2};
+  res=await call('/v1/content/jobs','POST',briefJob);assert.equal(res.status,202);const briefJobId=(await res.json()).job.id;
+  await server.content.tick();assert.equal(calls,2);
+  const briefId=(await(await call(`/v1/content/jobs/${briefJobId}`)).json()).job.result.brief_id;
+  let brief=await(await call(`/v1/content/briefs/${briefId}`)).json();assert.equal(brief.versions[0].status,'draft');
+  assert.equal((await call(`/v1/content/briefs/${briefId}/export`)).status,409);
+  assert.equal((await call(`/v1/content/briefs/${briefId}/approvals`,'POST',{expected_version:1,reviewed:false})).status,400);
+  assert.equal((await call(`/v1/content/briefs/${briefId}/approvals`,'POST',{expected_version:1,reviewed:true})).status,200);
+  res=await call(`/v1/content/briefs/${briefId}/export`);assert.equal(res.status,200);assert.match((await res.json()).markdown,/Amostra fictícia/);
+  const edited=briefFixture({research:research.data,opportunity:{data:opportunity.data}});edited.title='Título da segunda versão';
+  res=await call(`/v1/content/briefs/${briefId}/versions`,'POST',{expected_version:1,data:edited});assert.equal(res.status,200);brief=await res.json();assert.equal(brief.versions[0].version,2);assert.equal(brief.versions[0].status,'draft');assert.equal(brief.versions[1].status,'approved');
+  assert.equal((await call(`/v1/content/briefs/${briefId}/export`)).status,409);assert.equal((await call(`/v1/content/briefs/${briefId}/export?version=1`)).status,200);
+  // Em reinício, uma chamada em curso é incerta e nunca é executada novamente.
+  const interrupted=(await(await call('/v1/content/jobs','POST',{...jobInput,request_id:randomUUID()})).json()).job;
+  await pool.query("UPDATE content_jobs SET status='running' WHERE id=$1",[interrupted.id]);await server.content.tick();assert.equal(calls,2);
+  assert.equal((await(await call(`/v1/content/jobs/${interrupted.id}`)).json()).job.status,'unknown');
+  // Resposta com referência inventada falha atomicamente e conserva consumo informado.
+  provider.generate=async(action,snapshot)=>{calls++;const bad=opportunityFixture(snapshot.research);bad.evidence_refs=['inventada'];return{data:{opportunities:[opportunityFixture(snapshot.research),bad]},usage:{input_tokens:90,output_tokens:120}};};
+  const invalid=(await(await call('/v1/content/jobs','POST',{...jobInput,request_id:randomUUID()})).json()).job;
+  await server.content.tick();const failed=(await(await call(`/v1/content/jobs/${invalid.id}`)).json()).job;assert.equal(failed.status,'failed');assert.equal(failed.usage.output_tokens,120);
+  assert.equal((await pool.query('SELECT count(*)::integer AS n FROM content_opportunities')).rows[0].n,1);
+  failure=Object.assign(new Error('Consumo incerto'),{code:'provider_unknown'});provider.generate=async()=>{calls++;throw failure;};
+  const unknown=(await(await call('/v1/content/jobs','POST',{...jobInput,request_id:randomUUID()})).json()).job;await server.content.tick();assert.equal((await(await call(`/v1/content/jobs/${unknown.id}`)).json()).job.status,'unknown');
+  assert.equal((await call('/v1/content/jobs','POST',{...jobInput,request_id:randomUUID()})).status,429);
+  assert.equal((await call('/v1/content/jobs','POST',jobInput)).status,200);
+  await call('/v1/sessions/current','DELETE');assert.equal((await call(`/v1/content/briefs/${briefId}`)).status,401);
+});

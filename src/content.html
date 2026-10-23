@@ -1,0 +1,69 @@
+<div class="modal ci-modal" id="contentModule" aria-hidden="true" role="dialog" aria-label="Inteligência de conteúdo">
+  <div class="ci-shell">
+    <header class="ci-header">
+      <div><span class="ci-kicker">Leadcaps · OnSet Tecnologia</span><h2>Inteligência de conteúdo</h2><p>Do contexto e das dúvidas a um briefing revisado.</p></div>
+      <button class="btn" id="ciClose" aria-label="Fechar inteligência de conteúdo">Fechar ×</button>
+    </header>
+    <div id="ciAuth" class="ci-notice"><p>Entre com seu usuário para consultar pesquisas e salvar briefings.</p><button class="btn btn--primary" id="ciConnect">Conectar banco</button></div>
+    <div class="ci-layout" id="ciConnected" hidden>
+      <aside class="ci-history"><button class="btn btn--primary" id="ciNew">Nova pesquisa</button><h3>Pesquisas salvas</h3><div id="ciHistory"></div><button class="btn" id="ciMore" hidden>Ver anteriores</button></aside>
+      <div class="ci-workspace">
+        <p id="ciConfig" class="ci-notice"></p>
+        <p id="ciMessage" role="status" aria-live="polite"></p>
+        <form id="ciResearchForm">
+          <h3>1. Contexto e tema</h3>
+          <p class="ci-muted">Os dados abaixo serão enviados à Anthropic somente quando você solicitar uma geração.</p>
+          <div class="ci-grid">
+            <label class="db-field">Empresa<input id="ciCompany" value="OnSet Tecnologia" required maxlength="500"></label>
+            <label class="db-field">Serviço oferecido<input id="ciService" placeholder="Ex.: serviços gerenciados de TI" required maxlength="500"></label>
+            <label class="db-field">Público<input id="ciAudience" placeholder="Ex.: gestores de TI de indústrias" required maxlength="500"></label>
+            <label class="db-field">Objetivo<input id="ciGoal" placeholder="Ex.: gerar conversas de diagnóstico" required maxlength="500"></label>
+            <label class="db-field">Mercado<input id="ciMarket" value="Brasil" required maxlength="500"></label>
+            <label class="db-field">Idioma<input id="ciLanguage" value="Português do Brasil" required maxlength="40"></label>
+          </div>
+          <label class="db-field">Tema da pesquisa<input id="ciTheme" placeholder="Ex.: recorrência de incidentes de TI" required maxlength="300"></label>
+          <details><summary>Evidências da empresa e conteúdos existentes</summary>
+            <label class="db-field">Capacidades e diferenciais comprovados<textarea id="ciProofs" maxlength="1500" placeholder="Informe somente o que a empresa pode comprovar."></textarea></label>
+            <label class="db-field">Biblioteca examinada e referências<textarea id="ciLibrary" maxlength="1500" placeholder="Materiais existentes, links e necessidades atendidas. Em branco: lacuna editorial pendente."></textarea></label>
+          </details>
+          <div class="db-actions"><button type="button" class="btn" id="ciProfile">Usar perfil agregado do filtro atual</button><button type="button" class="btn" id="ciClearProfile" hidden>Remover perfil</button></div>
+          <p id="ciProfilePreview" class="ci-muted">Opcional: cargos, setores, estados e contagens. Nomes, empresas e e-mails dos contatos não entram no módulo.</p>
+          <h3>2. Resultados da pesquisa</h3>
+          <p class="ci-muted">Cole expressões de uma pesquisa que você realizou. Esta versão não consulta buscadores automaticamente. Fonte e data são declarações suas, preservadas no histórico.</p>
+          <div class="ci-grid">
+            <label class="db-field">Fonte dos resultados<input id="ciSource" placeholder="Ex.: AnswerThePublic — relatório salvo" maxlength="150"></label>
+            <label class="db-field">Data da coleta<input id="ciDate" type="date"></label>
+          </div>
+          <label class="db-field">URL de referência, se disponível<input id="ciSourceUrl" type="url" maxlength="1000" placeholder="https://..."></label>
+          <label class="db-field">Dúvidas ou expressões, uma por linha<textarea id="ciSignals" rows="5" placeholder="Cole aqui os resultados da pesquisa. Não cole contatos ou instruções internas." maxlength="25000"></textarea></label>
+          <label class="ci-check"><input type="checkbox" id="ciHypothesis"> Trabalhar como hipótese editorial se eu não fornecer resultados de pesquisa. As ideias da IA não comprovarão demanda.</label>
+          <button class="btn btn--primary" type="submit" id="ciSaveResearch">Salvar pesquisa</button>
+        </form>
+        <section id="ciResearchResult" hidden>
+          <div class="ci-section-head"><h3 id="ciResearchTitle"></h3><button class="btn" id="ciRefresh">Atualizar pesquisa</button></div>
+          <p id="ciResearchSummary" class="ci-muted"></p>
+          <details><summary>Contexto, expressões e rastreabilidade</summary><div id="ciEvidence"></div></details>
+          <div class="db-actions"><button class="btn btn--primary" id="ciAnalyze">Sugerir oportunidades com IA</button></div>
+          <p class="ci-muted">A geração utiliza sua API Anthropic e pode consumir créditos. A fonte dos resultados e a qualidade da evidência aparecem separadas da prioridade.</p>
+          <h3>3. Escolha uma oportunidade</h3><div id="ciOpportunities"></div>
+          <form id="ciOpportunityForm" hidden>
+            <h3>Revisão da oportunidade</h3><div id="ciOpportunityFields"></div>
+            <h4>Evidências selecionadas</h4><div id="ciReviewSignals"></div>
+            <h4>Avaliação editorial</h4><p class="ci-muted">Notas de 0 a 5; campo vazio permanece pendente. Os pesos são uma proposta do piloto, sem validação de desempenho.</p><div id="ciScores"></div>
+            <p id="ciPriority" class="ci-notice"></p>
+            <div class="db-actions"><button class="btn" type="submit">Salvar revisão</button><button class="btn btn--primary" type="button" id="ciGenerateBrief">Gerar briefing com IA</button></div>
+          </form>
+          <h3>4. Briefings desta pesquisa</h3><div id="ciBriefList"></div>
+        </section>
+        <section id="ciBriefSection" hidden>
+          <div class="ci-section-head"><h3>Revisar e aprovar briefing</h3><label>Versão <select id="ciVersion" aria-label="Versão do briefing"></select></label></div>
+          <p id="ciBriefStatus" class="ci-notice"></p>
+          <form id="ciBriefForm"><div id="ciBriefFields"></div><button class="btn" type="submit" id="ciSaveBrief">Salvar nova versão em rascunho</button></form>
+          <label class="ci-check"><input type="checkbox" id="ciReviewed"> Revisei as referências, as afirmações e as pendências desta versão.</label>
+          <div class="db-actions"><button class="btn btn--primary" id="ciApprove">Aprovar esta versão</button><button class="btn" id="ciExport">Baixar briefing aprovado (.md)</button></div>
+          <p class="ci-muted">A aprovação libera o briefing como orientação de produção. Artigos, publicação e campanhas serão entregas posteriores.</p>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
