@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Console de prospecção — Base Apollo</title>
+<link rel="icon" type="image/png" href="@@LOGO_1_URI@@">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap" rel="stylesheet">
+<style>
+@@CONSOLE_CSS@@
+</style>
+</head>
+<body>
+
+
+<aside class="rail" id="rail">
+  <div class="rail__brand">
+    <img class="mark" src="@@LOGO_1_URI@@" alt="OnSet Tecnologia" width="192" height="96">
+    <div>
+      <div class="brand__t">Base Apollo</div>
+      <div class="brand__s">OnSet Tecnologia</div>
+    </div>
+  </div>
+
+  <div class="rail__scroll">
+    <div class="search">
+      <div class="search__box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <input id="q" type="search" placeholder="Nome, empresa, cargo, e-mail…" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="grp" data-open="1">
+      <button class="grp__h" data-grp="">Segmentos prontos <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <div class="grp__b">
+        <div class="niveis" id="niveis"></div>
+        <p class="niveldesc" id="niveldesc"></p>
+        <div class="chips" id="presets"></div>
+      </div>
+    </div>
+
+    <div class="grp" data-open="1">
+      <button class="grp__h" data-grp="">Prioridade ICP <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <div class="grp__b"><div class="tiers" id="tiers"></div></div>
+    </div>
+
+    <div class="grp" data-open="1">
+      <button class="grp__h" data-grp="">Cargo <span class="grp__n" data-n="f" hidden=""></span> <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <div class="grp__b">
+        <div id="f-f"></div>
+        <div class="sublbl">Excluir cargos que contenham</div>
+        <div class="minisearch">
+          <input id="exq" type="text" placeholder="ex: assistente, estagiário, trainee" autocomplete="off">
+        </div>
+        <div class="chips" id="exquick"></div>
+      </div>
+    </div>
+
+    <div class="grp" data-open="0">
+      <button class="grp__h" data-grp="">Setor <span class="grp__n" data-n="ind" hidden=""></span> <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <div class="grp__b"><div id="f-ind"></div></div>
+    </div>
+
+    <div class="grp" data-open="0">
+      <button class="grp__h" data-grp="">Porte e faturamento <span class="grp__n" data-n="ptrev" hidden=""></span> <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <div class="grp__b">
+        <div class="sublbl">Porte por funcionários</div>
+        <div id="f-pt"></div>
+        <div class="sublbl">Faixa de funcionários</div>
+        <div class="rangebox">
+          <input id="emin" type="number" inputmode="numeric" placeholder="mín"><span>até</span><input id="emax" type="number" inputmode="numeric" placeholder="máx">
+        </div>
+        <div data-col="rev">
+          <div class="sublbl">Faturamento anual <span style="text-transform:none;letter-spacing:0">em dólares (USD)</span></div>
+          <div id="f-revb"></div>
+          <div class="rangebox" style="margin-top:8px">
+            <input id="rmin" type="text" placeholder="ex: US$ 50M"><span>até</span><input id="rmax" type="text" placeholder="ex: US$ 2B">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grp" data-open="0" id="geo">
+      <button class="grp__h" data-grp="">Estados e municípios <span class="grp__n" data-n="geo" hidden=""></span> <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <div class="grp__b">
+        <div class="sublbl">Região</div>
+        <div class="chips" id="f-reg"></div>
+        <div class="sublbl">Estado</div>
+        <div id="f-est"></div>
+        <div class="sublbl">Município <span id="ciscope"></span></div>
+        <div class="minisearch">
+          <input id="cisearch" type="search" placeholder="Buscar município…" autocomplete="off" aria-label="Buscar município">
+        </div>
+        <div id="f-ci"></div>
+      </div>
+    </div>
+
+    <div class="grp" data-open="0">
+      <button class="grp__h" data-grp="">Departamento <span class="grp__n" data-n="dp" hidden=""></span> <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <div class="grp__b"><div id="f-dp"></div></div>
+    </div>
+
+    <div class="grp" data-open="1">
+      <button class="grp__h" data-grp="">Qualidade do contato <svg class="chev" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"></path></svg></button>
+      <div class="grp__b" id="flags"></div>
+    </div>
+  </div>
+
+  <div class="rail__foot">
+    <button class="reset" id="reset">Limpar filtros</button>
+    <div class="railcount"><b id="railN">0</b><span class="build" id="build"></span></div>
+  </div>
+</aside>
+
+<main class="main">
+  <header class="top">
+    <button class="btn railtoggle" id="railtoggle" aria-label="Abrir filtros">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M6 12h12M10 18h4"></path></svg> Filtros
+    </button>
+    <div>
+      <h1 class="top__t">Console de prospecção — Base Apollo</h1>
+      <p class="top__s" id="sub">—</p>
+    </div>
+    <span class="stamp" id="stamp"></span>
+    <div class="top__acts">
+      <button class="btn" id="btnUp"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 21V9M8 13l4-4 4 4M4 3h16"></path></svg> Atualizar base</button>
+      <button class="btn" id="copyMails"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15V5a2 2 0 012-2h10"></path></svg> Copiar e-mails</button>
+      <button class="btn" id="expCsv"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path></svg> CSV</button>
+      <button class="btn btn--primary" id="expXls"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4M4 21h16"></path></svg> Exportar Excel</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="srcbar" id="srcbar" hidden=""></div>
+    <div class="excbar" id="excbar" hidden=""></div>
+    <section class="kpis" id="kpis"></section>
+
+    <section class="comp">
+      <div class="comp__h">
+        <span class="comp__t">Composição do segmento selecionado</span>
+        <span class="comp__q">Score médio <b id="avg">0</b><span style="opacity:.5">/100</span></span>
+      </div>
+      <div class="bar" id="bar"><span class="sA" style="width:0"></span><span class="sB" style="width:0"></span><span class="sC" style="width:0"></span></div>
+      <div class="comp__leg" id="leg"></div>
+    </section>
+
+    <section class="charts">
+      <div class="card">
+        <div class="card__h"><span class="card__t">Cargo</span><span class="card__hint">clique filtra · Shift exclui</span></div>
+        <div class="brow" id="ch-f"></div>
+      </div>
+      <div class="card">
+        <div class="card__h"><span class="card__t">Setor</span>
+          <span class="prof" id="prof-ind" role="group" aria-label="Quantos setores mostrar">
+            <button data-prof="8" aria-pressed="true">8</button><button data-prof="15" aria-pressed="false">15</button><button data-prof="30" aria-pressed="false">30</button><button data-prof="0" aria-pressed="false">todos</button>
+          </span>
+        </div>
+        <div class="brow" id="ch-ind"></div>
+      </div>
+      <div class="card">
+        <div class="card__h"><span class="card__t">Porte</span><span class="card__hint">clique filtra · Shift exclui</span></div>
+        <div class="brow" id="ch-pt"></div>
+      </div>
+      <div class="card card--map">
+        <div class="card__h"><span class="card__t">Distribuição geográfica</span><span class="card__hint">clique no estado para filtrar · Shift exclui</span>
+          <button class="btn btn--all" id="verTudo" disabled="">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v5h5"></path></svg>
+            Visualizar tudo
+          </button>
+        </div>
+        <p class="mapsub" id="mapsub"></p>
+        <div class="mapwrap">
+          <div class="mapbox" id="mapbox">
+            <svg id="mapa" viewBox="0 0 600 630" role="img" aria-label="Mapa do Brasil com prospects por estado"></svg>
+            <div class="maptip" id="maptip" hidden=""></div>
+          </div>
+          <div class="mapside">
+            <div class="geobusca">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+              <input id="mapbusca" type="search" placeholder="Buscar município ou estado…" autocomplete="off" aria-label="Buscar município ou estado">
+            </div>
+            <div class="geosug" id="mapsug" hidden=""></div>
+            <div class="geochips" id="mapchips"></div>
+            <div class="maprank__t">Estados com mais prospects</div>
+            <div class="brow" id="ch-uf"></div>
+            <div class="mapleg" id="mapleg"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card" data-col="rev">
+        <div class="card__h"><span class="card__t">Faturamento anual · USD</span><span class="card__hint">clique filtra · Shift exclui</span></div>
+        <div class="brow" id="ch-rev"></div>
+      </div>
+    </section>
+
+    <section class="tbl">
+      <div class="tbl__bar">
+        <span class="tbl__c"><b id="tblN">0</b> contatos no filtro atual</span>
+        <span class="selinfo" id="selinfo" hidden=""><span><b id="selN">0</b> selecionados</span><button id="selall">selecionar todos do filtro</button><button id="selnone">limpar</button></span>
+        <div class="tbl__right">
+          <select class="mini" id="pageSize"><option value="25">25 por página</option><option value="50" selected="">50 por página</option><option value="100">100 por página</option><option value="250">250 por página</option></select>
+        </div>
+      </div>
+      <div class="scroller">
+        <table>
+          <thead><tr>
+            <th style="width:34px"><input type="checkbox" class="cbx" id="headcbx" aria-label="Selecionar página"></th>
+            <th class="s" data-k="sc" data-dir="desc">ICP <span class="ar">▾</span></th>
+            <th class="s" data-k="n">Contato <span class="ar">▾</span></th>
+            <th class="s" data-k="c">Empresa <span class="ar">▾</span></th>
+            <th class="s" data-k="ind">Setor <span class="ar">▾</span></th>
+            <th class="s" data-k="em" style="text-align:right">Func. <span class="ar">▾</span></th>
+            <th class="s" data-k="rev" data-col="rev" style="text-align:right">Faturamento USD <span class="ar">▾</span></th>
+            <th class="s" data-k="loc">Local <span class="ar">▾</span></th>
+            <th>E-mail</th>
+            <th style="width:56px">Links</th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+      <div id="emptyBox"></div>
+      <div class="pager" id="pager"></div>
+    </section>
+  </div>
+</main>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true">
+  <div class="dr__h" style="position:relative">
+    <button class="dr__x" id="drx" aria-label="Fechar">×</button>
+    <div class="dr__n" id="drN"></div>
+    <div class="dr__t" id="drT"></div>
+  </div>
+  <div class="dr__b" id="drB"></div>
+  <div class="dr__acts" id="drA"></div>
+</aside>
+<div class="modal" id="upl" aria-hidden="true" role="dialog" aria-label="Atualizar base">
+  <div class="modal__box">
+    <button class="dr__x" id="uplx" aria-label="Fechar" style="color:#7E93A3">×</button>
+    <h2 class="modal__t">Atualizar a base de contatos</h2>
+    <p class="modal__p">Envie a planilha exportada do Apollo em <b>.csv</b> ou <b>.xlsx</b>. O app aplica as mesmas regras de normalização e recalcula o score ICP de cada contato. A coluna <b>Annual Revenue</b> é lida em <b>dólares americanos (USD)</b>, como o Apollo exporta.</p>
+    <div class="modo" role="radiogroup" aria-label="Modo de carga">
+      <button type="button" data-modo="rep" aria-pressed="true">
+        <b>Substituir a base</b><span>troca tudo pelo conteúdo do arquivo</span>
+      </button>
+      <button type="button" data-modo="add" aria-pressed="false">
+        <b>Acrescentar</b><span>soma à base atual, sem repetir contatos</span>
+      </button>
+    </div>
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept=".csv,.xlsx,.xls,.txt" hidden="">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 16V4M8 8l4-4 4 4"></path><path d="M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3"></path></svg>
+      <span class="drop__t">Arraste o arquivo aqui ou clique para escolher</span>
+      <span class="drop__s">CSV separado por ponto-e-vírgula ou vírgula · XLSX</span>
+    </label>
+    <div id="uplmsg"></div>
+    <details class="modal__d">
+      <summary>Como os duplicados são tratados</summary>
+      <p>Dois registros são o mesmo contato quando têm o <b>mesmo nome na mesma empresa</b>, ou o <b>mesmo e-mail na mesma empresa</b>. Nesses casos fica apenas um — o registro com mais campos preenchidos.</p>
+      <p>A mesma pessoa em <b>empresas diferentes</b> é mantida como dois contatos. Variações no nome da empresa (acentos, Ltda, S.A.) não impedem o reconhecimento.</p>
+    </details>
+    <details class="modal__d">
+      <summary>Colunas reconhecidas</summary>
+      <p>Os cabeçalhos do Apollo funcionam direto. Também são aceitos nomes em português.</p>
+      <div id="aliaslist"></div>
+    </details>
+  </div>
+</div>
+<div class="modal ds" id="dossie" aria-hidden="true" role="dialog" aria-label="Dossiê de abordagem">
+  <div class="ds__box">
+    <div class="ds__topo">
+      <button class="dr__x" id="dsX" aria-label="Fechar">×</button>
+      <div class="ds__kicker">Dossiê de abordagem</div>
+      <div class="ds__nome" id="dsTitulo"></div>
+      <div class="ds__cargo" id="dsSub"></div>
+    </div>
+    <div class="ds__corpo" id="dsCorpo"></div>
+    <div class="dr__acts" id="dsAcoes"></div>
+  </div>
+</div>
+<div class="pop" id="pop" role="menu"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+@@XLSX_EXPORT_JS@@
+</script>
+<script>
+@@INGEST_JS@@
+</script>
+<script>
+@@BRAZIL_MAP_JS@@
+</script>
+<script>
+@@APP_JS@@
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+# Arquitetura confirmada no arquivo recebido
+
+## Aplicação atual
+
+- Aplicação estática em HTML, CSS e JavaScript, executada no navegador.
+- Quatro blocos principais: exportação XLSX, importação/classificação, mapa e interface.
+- Dados em formato de dicionários e colunas, hidratados na memória.
+- A base contém 5.157 registros; a data declarada no código é 21/10/2026.
+- Não há backend, banco de dados, autenticação, cadastro de campanhas nem armazenamento persistente identificados neste arquivo.
+- Importação substitui ou adiciona dados na sessão. A função de salvar gera outro HTML com a base incorporada.
+- A chamada de IA existente usa Anthropic no navegador; a chave não está gravada no HTML.
+- Fontes tipográficas vêm do Google Fonts. Links de e-mail, pesquisa e LinkedIn abrem serviços externos.
+
+## Encaixe do módulo de conteúdo
+
+Reaproveitar os recortes por segmento, cargo e localização como contexto agregado, mediante seleção do usuário. Não enviar a base inteira para pesquisar conteúdo. Acrescentar uma área de inteligência editorial com entidades próprias para pesquisa, sinal, grupo, oportunidade e briefing.
+
+O arquivo atual não comprova a existência de campanhas ou automações. O primeiro destino utilizável será um briefing exportável; qualquer vínculo com campanha dependerá de uma função implementada e confirmada. Um backend será necessário para manter credenciais, consultas pagas e histórico compartilhado.
+
+## Decisões desta migração
+
+Manter JavaScript nativo e o HTML portátil. Separar fontes, dados e ferramentas de compilação. Preservar o original para comparação. Não recalibrar scores, alterar a classificação de contatos ou executar consultas pagas nesta etapa.
+
+A serialização da base incorporada passa a escapar o caractere `<`, preservando textos de planilhas que contenham sequências como fechamento de tag de script. Isso evita quebrar a estrutura do HTML regenerado.

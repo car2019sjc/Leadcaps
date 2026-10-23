@@ -1,0 +1,8 @@
+{
+  "schema_version": "onset.console.base.v1",
+  "records": 5157,
+  "base_date": "2026-10-21",
+  "source_file": "OnSet_Console_Decisores_v3.html",
+  "source_sha256": "e6edf833f23a063919d83c62381a696ef946218fed598e668a4f1529b77fcd55",
+  "app_build_original": "2026.10.21-6"
+}

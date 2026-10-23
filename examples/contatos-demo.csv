@@ -1,0 +1,4 @@
+Nome,Cargo,Empresa,Email,Funcionarios,Setor,Cidade,Estado,Faturamento
+Pessoa Exemplo A,CIO,Empresa Ficticia A,exemplo.a@example.com,1500,Information Technology & Services,São José dos Campos,SP,10000000
+Pessoa Exemplo B,CFO,Empresa Ficticia B,exemplo.b@example.com,300,Manufacturing,Campinas,São Paulo,5000000
+Pessoa Exemplo C,Gerente de TI,Empresa Ficticia C,,80,Healthcare,Curitiba,PR,

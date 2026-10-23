@@ -1,0 +1,19 @@
+{
+  "name": "leadcaps",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Console de prospecção da OnSet e base para inteligência de conteúdo",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:demo": "node scripts/build.mjs --demo",
+    "build:local": "node scripts/build.mjs --private-data",
+    "start": "node scripts/serve.mjs",
+    "check": "node scripts/check.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "validate": "npm run check && npm test && npm run build"
+  }
+}
