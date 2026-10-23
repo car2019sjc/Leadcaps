@@ -3,6 +3,8 @@ dist/
 exports/
 backups/
 test-results/
+__pycache__/
+compose.override.yaml
 data/imports/
 data/private/
 reference/private/

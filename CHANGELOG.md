@@ -1,5 +1,11 @@
 # Alterações
 
+## HTTPS — 23/10/2026
+
+- Gateway exclusivo do Leadcaps entre a rede do proxy existente e a rede da API, mantendo o PostgreSQL privado.
+- Instalador com backup privado, validação do merge, CORS, comparação com a configuração ativa do Caddy e tentativa de restauração em falha.
+- Roteiro específico de HTTPS e atualização manual do frontend pelo PowerShell.
+
 ## 0.2.0 — 23/10/2026
 
 - Persistência de pesquisas como snapshots independentes em PostgreSQL.

@@ -47,3 +47,53 @@ jobs:
       - name: Encerrar containers exclusivos do teste
         if: always()
         run: docker compose --env-file deploy/ci.env down
+  https_gateway:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - run: python3 -m unittest discover -s tests -p '*_test.py' -v
+      - name: Preparar proxy e instalação fictícios
+        run: |
+          cp deploy/ci.env .env
+          docker network create synapse-network
+          mkdir -p test-results/https
+          printf '{\n auto_https off\n}\nhttp://keep.example.test:8082 {\n respond "existing-route-ok"\n}\n' > test-results/https/Caddyfile
+          docker run -d --name leadcaps-caddy-ci --network synapse-network -v "$PWD/test-results/https/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:2-alpine
+          docker compose up -d --build --wait --wait-timeout 120
+      - name: Ativar e verificar gateway e origem permitida
+        run: |
+          sudo python3 deploy/enable_https.py --apply --caddy-container leadcaps-caddy-ci --caddy-file "$PWD/test-results/https/Caddyfile"
+          docker exec leadcaps-caddy-ci wget -q -O- http://127.0.0.1:8082 -Y off --header='Host: keep.example.test'
+          curl --fail -i -X OPTIONS -H 'Origin: https://leadcaps.synapseia.com.br' -H 'Access-Control-Request-Method: POST' http://127.0.0.1:8310/v1/sessions
+      - name: Verificar repetição e resolução após recriar API
+        run: |
+          sudo python3 deploy/enable_https.py --apply --caddy-container leadcaps-caddy-ci --caddy-file "$PWD/test-results/https/Caddyfile"
+          docker compose up -d --no-deps --force-recreate --wait --wait-timeout 120 api
+          docker exec leadcaps-caddy-ci wget -q -O- http://leadcaps-gateway:8080/health
+      - name: Verificar restauração quando validação do Caddy falha
+        run: |
+          cp .env test-results/https/env.before-test
+          cp compose.override.yaml test-results/https/override.before-test
+          cp test-results/https/Caddyfile test-results/https/Caddyfile.before-test
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('deploy/enable_https.py')
+          text = p.read_text().replace('reverse_proxy leadcaps-gateway:8080', 'invalid_directive_for_rollback_test')
+          p.write_text(text)
+          PY
+          if sudo python3 deploy/enable_https.py --apply --caddy-container leadcaps-caddy-ci --caddy-file "$PWD/test-results/https/Caddyfile"; then
+            echo 'Era esperada uma falha na validação.'
+            exit 1
+          fi
+          cmp .env test-results/https/env.before-test
+          cmp compose.override.yaml test-results/https/override.before-test
+          cmp test-results/https/Caddyfile test-results/https/Caddyfile.before-test
+          docker exec leadcaps-caddy-ci wget -q -O- http://leadcaps-gateway:8080/health
+      - name: Encerrar somente recursos do teste
+        if: always()
+        run: |
+          docker compose down
+          docker rm -f leadcaps-caddy-ci
+          docker network rm synapse-network

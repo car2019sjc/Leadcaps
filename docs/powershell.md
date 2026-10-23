@@ -128,6 +128,8 @@ Você voltou ao PowerShell do Windows.
 
 ## 5. Disponibilizar a API por HTTPS — configuração específica do ambiente
 
+Para a instalação confirmada em `synapseia.com.br`, siga agora [HTTPS na VPS existente](https-vps.md). Esse roteiro usa o Caddy identificado e cria um gateway exclusivo do Leadcaps, sem mudar as redes do proxy compartilhado. As orientações genéricas abaixo continuam como referência para outros ambientes.
+
 O backend fica restrito a `127.0.0.1:8310` na VPS (ou à porta que você escolheu). Para o frontend do Netlify acessá-lo, é necessário:
 
 1. Definir um subdomínio para a API e apontar seu DNS para a VPS.

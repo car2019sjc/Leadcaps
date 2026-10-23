@@ -1,0 +1,36 @@
+# leadcaps-managed-gateway-v1
+# Copiado pelo instalador para compose.override.yaml na VPS.
+services:
+  leadcaps-gateway:
+    image: caddy:2-alpine
+    user: '1000:1000'
+    environment:
+      XDG_DATA_HOME: /tmp/caddy/data
+      XDG_CONFIG_HOME: /tmp/caddy/config
+    volumes:
+      - ./deploy/gateway.Caddyfile:/etc/caddy/Caddyfile:ro
+    networks:
+      edge:
+      caddy_proxy:
+        aliases: [leadcaps-gateway]
+    depends_on:
+      api: {condition: service_healthy}
+    read_only: true
+    tmpfs: ['/tmp:size=8m,mode=1777']
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    mem_limit: 96m
+    cpus: 0.20
+    healthcheck:
+      test: [CMD, wget, -q, -O-, 'http://127.0.0.1:8080/health']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    logging:
+      driver: json-file
+      options: {max-size: 5m, max-file: '2'}
+networks:
+  caddy_proxy:
+    name: synapse-network
+    external: true
