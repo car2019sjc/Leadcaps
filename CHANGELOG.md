@@ -1,5 +1,10 @@
 # Alterações
 
+## Ajuste do configurador Anthropic — 23/10/2026
+
+- Seleção de modelo aceita número, nome completo ou ID, com nova tentativa sem repetir a entrada da chave.
+- Instruções esclarecem que a entrada oculta é normal e que a configuração só é salva após a escolha do modelo.
+
 ## 0.3.0 — Inteligência de conteúdo — 23/10/2026
 
 - Contexto e pesquisa preservados com origem, data, expressões originais e perfil agregado opcional.

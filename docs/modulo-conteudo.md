@@ -24,7 +24,9 @@ git pull --ff-only
 python3 deploy/configure_anthropic.py
 ```
 
-O configurador pede a chave com entrada oculta, consulta a lista de modelos disponíveis para essa credencial e pede que você escolha um. Se sua chave exigir workspace, informe seu identificador; caso contrário, pressione Enter. Modelos que declaram suporte a saídas estruturadas e estão ativos são priorizados pela elegibilidade; quando essa capacidade não é informada pela API, a compatibilidade ainda precisa ser confirmada na primeira geração.
+O configurador pede a chave com entrada oculta, consulta a lista de modelos disponíveis para essa credencial e pede que você escolha um pelo número da lista, nome completo ou ID. Se a escolha não for reconhecida, ele repete somente essa pergunta, preservando a chave em memória; digite `cancelar` para sair sem gravar. Se sua chave exigir workspace, informe seu identificador; caso contrário, pressione Enter. Modelos que declaram suporte a saídas estruturadas e estão ativos são priorizados pela elegibilidade; quando essa capacidade não é informada pela API, a compatibilidade ainda precisa ser confirmada na primeira geração.
+
+Uma lista de modelos retornada indica que a consulta autenticada funcionou, mesmo que nenhum caractere tenha aparecido durante a colagem da chave. A configuração só é gravada depois da escolha do modelo e da mensagem `Configuração salva na VPS`. Depois disso, a API precisa ser recriada para receber as variáveis novas.
 
 Essa consulta não gera conteúdo. O configurador grava a chave somente no `.env` privado da VPS, preserva as demais variáveis e cria uma cópia privada do arquivo anterior em `backups/anthropic-.../`. Não envia a chave ao navegador, ao GitHub ou ao Netlify. Não cole a chave em comandos, capturas de tela ou no chat.
 

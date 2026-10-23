@@ -30,6 +30,25 @@ def replace_values(source, values):
     return ''.join(lines)
 
 
+def choose_model(models, input_fn=input, output_fn=print):
+    while True:
+        choice = input_fn('Modelo (número da lista, nome ou ID; cancelar para sair): ').strip()
+        normalized = ' '.join(choice.casefold().split())
+        if normalized in ('cancelar', 'sair', 'exit'):
+            raise KeyboardInterrupt
+        if re.fullmatch(r'[0-9]+', choice):
+            index = int(choice) - 1
+            if 0 <= index < len(models):
+                return models[index]['id']
+        matches = [model for model in models if normalized in (
+            ' '.join(model['id'].casefold().split()),
+            ' '.join(model.get('display_name', model['id']).casefold().split())
+        )]
+        if normalized and len(matches) == 1:
+            return matches[0]['id']
+        output_fn('Escolha não reconhecida. Digite o número, o nome ou o ID de um modelo da lista. A chave não precisa ser informada novamente.')
+
+
 def main():
     if os.geteuid() != 0 or not sys.stdin.isatty():
         raise ValueError('Execute como root em uma sessão SSH interativa da VPS.')
@@ -65,10 +84,7 @@ def main():
     print('Modelos disponíveis para sua conta (consulta sem geração de conteúdo):')
     for index, model in enumerate(models, 1):
         print(f"{index}. {model.get('display_name', model['id'])} — {model['id']}")
-    index = int(input('Número do modelo que deseja utilizar: ')) - 1
-    if not 0 <= index < len(models):
-        raise ValueError('Escolha inválida.')
-    model = models[index]['id']
+    model = choose_model(models)
     if not re.fullmatch(r'[A-Za-z0-9._-]{3,150}', model):
         raise ValueError('Identificador de modelo inválido.')
     values = {'ANTHROPIC_API_KEY': key, 'ANTHROPIC_MODEL': model, 'ANTHROPIC_WORKSPACE_ID': workspace}

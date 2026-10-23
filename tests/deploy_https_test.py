@@ -13,6 +13,28 @@ config_spec.loader.exec_module(config)
 
 
 class DeploymentGuards(unittest.TestCase):
+    def test_anthropic_model_accepts_number_name_and_id(self):
+        models = [
+            {"id": "claude-sonnet-test", "display_name": "Claude Sonnet Test"},
+            {"id": "claude-haiku-test", "display_name": "Claude Haiku Test"}
+        ]
+        for choice in ("1", "Claude Sonnet Test", "claude-sonnet-test", "  CLAUDE   SONNET TEST  "):
+            with self.subTest(choice=choice):
+                self.assertEqual(config.choose_model(models, lambda _: choice), "claude-sonnet-test")
+        self.assertEqual(config.choose_model(models, lambda _: "2"), "claude-haiku-test")
+
+    def test_anthropic_invalid_model_retries_without_requesting_key(self):
+        models = [{"id": "claude-test", "display_name": "Claude Test"}]
+        choices = iter(("unknown", "0", "99", "", "Claude Test"))
+        messages = []
+        selected = config.choose_model(models, lambda _: next(choices), messages.append)
+        self.assertEqual(selected, "claude-test")
+        self.assertEqual(len(messages), 4)
+
+    def test_anthropic_model_can_be_cancelled(self):
+        with self.assertRaises(KeyboardInterrupt):
+            config.choose_model([{"id": "claude-test"}], lambda _: "cancelar")
+
     def test_anthropic_configuration_preserves_database_and_proxy_settings(self):
         source = "POSTGRES_PASSWORD=private-value\nALLOWED_ORIGINS=https://example.com\nAPI_PORT=8310\n"
         result = config.replace_values(source, {"ANTHROPIC_API_KEY": "fictitious-key", "ANTHROPIC_MODEL": "model-test"})
