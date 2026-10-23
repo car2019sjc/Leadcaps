@@ -71,7 +71,7 @@ Consulte [o contrato de bases](docs/bases-e-importacoes.md) e [as instruções d
 
 O upload manual no Netlify usa a pasta `dist`, compilada com dados fictícios. Atualizar essa pasta não altera as bases salvas no banco. O workflow também disponibiliza o artefato `leadcaps-netlify-demo` para download depois das verificações.
 
-Sem `TEST_DATABASE_URL`, o teste de integração de banco é indicado como ignorado; os demais executam localmente. No GitHub Actions, um PostgreSQL exclusivo permite executar a integração, além de validar o Compose e construir a imagem Docker.
+Sem `TEST_DATABASE_URL`, os testes de integração de banco são indicados como ignorados; os demais executam localmente. No GitHub Actions, um PostgreSQL exclusivo permite executar a integração, além de validar o Compose e construir a imagem Docker. Os arquivos de testes executam em sequência porque as filas de seus schemas isolados compartilham advisory locks no mesmo banco de testes.
 
 ## Próxima etapa
 
