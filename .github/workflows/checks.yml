@@ -30,7 +30,8 @@ jobs:
       - run: npx playwright install --with-deps chromium --only-shell
       - run: npm run test:ui
       - run: docker compose --env-file deploy/ci.env config --quiet
-      - run: docker build -t leadcaps-api:test .
+      - run: docker compose --env-file deploy/ci.env up -d --build --wait --wait-timeout 90
+      - run: curl --fail http://127.0.0.1:8310/health
       - uses: actions/upload-artifact@v7
         with:
           name: leadcaps-netlify-demo
@@ -43,3 +44,6 @@ jobs:
           path: test-results/*.png
           if-no-files-found: ignore
           retention-days: 7
+      - name: Encerrar containers exclusivos do teste
+        if: always()
+        run: docker compose --env-file deploy/ci.env down
