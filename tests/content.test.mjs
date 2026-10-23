@@ -77,6 +77,10 @@ test('PostgreSQL editorial: migração preserva bases, fila idempotente, revisã
   const opportunity=detail.opportunities[0];assert.equal(opportunity.data.priority_score,null);
   const raw=opportunityFixture(research.data);raw.title='Checklist revisado pelo usuário';
   res=await call(`/v1/content/opportunities/${opportunity.id}/reviews`,'POST',{expected_revision:1,data:raw});assert.equal(res.status,200);
+  const reviewed=(await res.json()).item;
+  const persistedReview=(await pool.query('SELECT created_at FROM content_opportunity_revisions WHERE opportunity_id=$1 AND revision=2',[opportunity.id])).rows[0];
+  assert.equal(new Date(reviewed.evaluated_at).getTime(),persistedReview.created_at.getTime());
+  assert.equal(reviewed.author_type,'human');
   assert.equal((await call(`/v1/content/opportunities/${opportunity.id}/reviews`,'POST',{expected_revision:1,data:raw})).status,409);
   const briefJob={request_id:randomUUID(),research_id:research.id,action:'brief',opportunity_id:opportunity.id,expected_revision:2};
   res=await call('/v1/content/jobs','POST',briefJob);assert.equal(res.status,202);const briefJobId=(await res.json()).job.id;

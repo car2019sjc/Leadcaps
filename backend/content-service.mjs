@@ -107,7 +107,7 @@ export function createContentService({ pool, provider = anthropicProvider(), dai
         const revision = current.latest_revision + 1;
         await client.query("INSERT INTO content_opportunity_revisions(opportunity_id,revision,data,author_type,author_id) VALUES($1,$2,$3,'human',$4)", [itemId, revision, JSON.stringify(data), user.id]);
         await client.query('UPDATE content_opportunities SET latest_revision=$2 WHERE id=$1', [itemId, revision]);
-        return { ...current, data, latest_revision: revision, author_type: 'human', author_id: user.id };
+        return opportunity(itemId, client);
       }); send(200, { item }); return true;
     }
     if (kind === 'briefs' && req.method === 'GET' && !operation) { send(200, await getBrief(itemId)); return true; }
